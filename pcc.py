@@ -22,7 +22,6 @@ if __name__ == '__main__':
 
     tokens = tokenizer.tokenize(src)
     tokens = preprocessor.preprocess(tokens)
-
     # print(tokens)
 
     ast = parser.parse(tokens)

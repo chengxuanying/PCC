@@ -14,37 +14,133 @@ class parseError(Exception):
         return str(self)
 
 
-def parse_expression(tokens, idx):
-    # <unary_op> ::= "!" | "~" | "-"
-    expression = None
+"""
+<program> ::= <function>
+<function> ::= "int" <id> "(" ")" "{" <statement> "}"
+<statement> ::= "return" <exp> ";"
+<exp> ::= <term> { ("+" | "-") <term> }
+<term> ::= <factor> { ("*" | "/") <factor> }
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
+"""
+
+
+def parse_factor(tokens, idx):
+    # ( expression )
+    try:
+        tok = tokens[idx]
+        if tok.type != token_type.OPERATOR or \
+                tok.value != '(':
+            raise parseError('no (')
+        idx += 1
+
+        idx, expression = parse_expression(tokens, idx)
+        factor = Factor(expression=expression)
+
+        tok = tokens[idx]
+        if tok.type != token_type.OPERATOR or \
+                tok.value != ')':
+            raise parseError('no )')
+        idx += 1
+
+        return idx, factor
+    except:
+        pass
+
+    # unary_op factor
+
+    try:
+        tok = tokens[idx]
+        if tok.type != token_type.OPERATOR or \
+                tok.value not in utils.unary_op:
+            raise parseError('no unary_op')
+        idx += 1
+
+        idx, factor = parse_factor(tokens, idx)
+        factor = UnaryOP(op=tok.value,
+                         factor=factor)
+
+        return idx, factor
+    except:
+        pass
 
     # int
     try:
         tok = tokens[idx]
         if (tok.type != token_type.INT):
             raise parseError('no int')
-        expression = Expression(int(tok.value))
         idx += 1
+
+        expression = Number(num=int(tok.value))
 
         return idx, expression
     except:
         pass
 
-    # unary operation
+    print('error: parse_factor')
+    exit()
+
+
+def parse_term(tokens, idx):
+    # term
     try:
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value not in utils.unary_op):
-            raise parseError('no unary_op')
+        idx, factor = parse_factor(tokens, idx)
+        term = Term(factor=factor)
 
-        idx += 1
-        idx, expression = parse_expression(tokens, idx)
-        expression = UnaryOP(op=tok.value,
-                             expression=expression)
+        # * or / factor
+        while True:
+            try:
+                tok = tokens[idx]
+                if tok.type != token_type.OPERATOR or \
+                        tok.value not in ['*', '/']:
+                    break
+                    # raise parseError('no * or /')
+
+                idx += 1
+
+                idx, factor = parse_factor(tokens, idx)
+                term = Term(factor=factor,
+                            op=tok.value,
+                            term=term)
+            except:
+                pass
+
+        return idx, term
+    except:
+        pass
+
+    print('error: parse_term')
+    exit()
+
+
+def parse_expression(tokens, idx):
+    # term
+    try:
+        idx, term = parse_term(tokens, idx)
+        expression = Expression(term=term)
+
+        # + or - term
+        while True:
+            try:
+                tok = tokens[idx]
+                if tok.type != token_type.OPERATOR or \
+                        tok.value not in ['+', '-']:
+                    break
+                    # raise parseError('no + or -')
+
+                idx += 1
+
+                idx, term = parse_term(tokens, idx)
+                expression = Expression(term=term,
+                                        op=tok.value,
+                                        expression=expression)
+            except:
+                pass
+
         return idx, expression
     except:
         pass
 
-    print('error')
+    print('error: parse_expression')
     exit()
 
 
