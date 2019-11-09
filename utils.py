@@ -23,7 +23,9 @@ op_alphabet1 = [':', ';', ',',
                 '[', ']', '{', '}', '<', '>', '(', ')']
 
 op_alphabet2 = ['+=', '-=', '*=', '/=', '%=',
-                '++', '--']
+                '++', '--',
+                '>=', '<=', '!=', '==',
+                '||', '&&']
 
 reserved_ids = ["bool", "char", "short", "int", "long",
                 "signed", "unsigned",
@@ -36,3 +38,11 @@ unary_op = ['!', '~', '-']
 def read_src(file = 'return_2.c'):
     with open(file) as f:
         return f.read()
+
+class ClauseCounter:
+    def __init__(self):
+        self.cnt = 0
+
+    def next(self):
+        self.cnt += 1
+        return '_clause{}'.format(self.cnt)

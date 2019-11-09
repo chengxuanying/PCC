@@ -2,7 +2,14 @@
 def generate(ast, fname):
     f = open(fname, mode='w+')
 
-    src = str(ast)
+    src = []
+    for line in str(ast).split('\n'):
+        if ':' in line:
+            src.append(line)
+        else:
+            src.append('\t' + line)
+    src = '\n'.join(src)
+
     f.write(src)
     # f.write('.globl _{}\n'.format(ast.function.fname))
     # f.write('_{}:\n'.format(ast.function.fname))

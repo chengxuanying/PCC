@@ -77,7 +77,7 @@ def parse_factor(tokens, idx):
         pass
 
     print('error: parse_factor')
-    exit()
+    assert False
 
 
 def parse_term(tokens, idx):
@@ -109,14 +109,14 @@ def parse_term(tokens, idx):
         pass
 
     print('error: parse_term')
-    exit()
+    assert False
 
 
-def parse_expression(tokens, idx):
+def parse_additive_expression(tokens, idx):
     # term
     try:
         idx, term = parse_term(tokens, idx)
-        expression = Expression(term=term)
+        additive_expression = AdditiveExpression(term=term)
 
         # + or - term
         while True:
@@ -130,7 +130,118 @@ def parse_expression(tokens, idx):
                 idx += 1
 
                 idx, term = parse_term(tokens, idx)
-                expression = Expression(term=term,
+                additive_expression = AdditiveExpression(term=term,
+                                                         op=tok.value,
+                                                         expression=additive_expression)
+            except:
+                pass
+
+        return idx, additive_expression
+    except:
+        pass
+
+    print('error: parse_additive_expression')
+    assert False
+
+
+def parse_relational_expression(tokens, idx):
+    # > < >= <=
+    try:
+        idx, additive_expression = parse_additive_expression(tokens, idx)
+        relational_expression = RelationalExpression(additive_expression=additive_expression)
+
+        # != == relational_expression
+        while True:
+            try:
+                tok = tokens[idx]
+                if tok.type != token_type.OPERATOR or \
+                        tok.value not in ['<', '>', '<=', '>=']:
+                    break
+                idx += 1
+
+                idx, additive_expression = parse_additive_expression(tokens, idx)
+                relational_expression = RelationalExpression(additive_expression=additive_expression,
+                                                             op=tok.value,
+                                                             relational_expression=relational_expression)
+            except:
+                pass
+
+        return idx, relational_expression
+    except:
+        pass
+
+
+def parse_equality_expression(tokens, idx):
+    # != ==
+    try:
+        idx, relational_expression = parse_relational_expression(tokens, idx)
+        equality_expression = EqualityExpression(relational_expression=relational_expression)
+
+        # != == relational_expression
+        while True:
+            try:
+                tok = tokens[idx]
+                if tok.type != token_type.OPERATOR or \
+                        tok.value not in ['!=', '==']:
+                    break
+                idx += 1
+
+                idx, relational_expression = parse_relational_expression(tokens, idx)
+                equality_expression = EqualityExpression(relational_expression=relational_expression,
+                                                         op=tok.value,
+                                                         equality_expression=equality_expression)
+            except:
+                pass
+
+        return idx, equality_expression
+    except:
+        pass
+
+
+def parse_logical_and_expression(tokens, idx):
+    # &&
+    try:
+        idx, equality_expression = parse_equality_expression(tokens, idx)
+        logical_and_expression = LogicalAndExpression(equality_expression=equality_expression)
+
+        # && equality_expression
+        while True:
+            try:
+                tok = tokens[idx]
+                if tok.type != token_type.OPERATOR or \
+                        tok.value != '&&':
+                    break
+                idx += 1
+
+                idx, equality_expression = parse_equality_expression(tokens, idx)
+                logical_and_expression = LogicalAndExpression(equality_expression=equality_expression,
+                                                              op=tok.value,
+                                                              logical_and_expression=logical_and_expression)
+            except:
+                pass
+
+        return idx, logical_and_expression
+    except:
+        pass
+
+
+def parse_expression(tokens, idx):
+    # ||
+    try:
+        idx, logical_and_expression = parse_logical_and_expression(tokens, idx)
+        expression = Expression(logical_and_expression=logical_and_expression)
+
+        # || logical_and_expression
+        while True:
+            try:
+                tok = tokens[idx]
+                if tok.type != token_type.OPERATOR or \
+                        tok.value != '||':
+                    break
+                idx += 1
+
+                idx, logical_and_expression = parse_logical_and_expression(tokens, idx)
+                expression = Expression(logical_and_expression=logical_and_expression,
                                         op=tok.value,
                                         expression=expression)
             except:
@@ -141,14 +252,14 @@ def parse_expression(tokens, idx):
         pass
 
     print('error: parse_expression')
-    exit()
+    assert False
 
 
 def parse_statement(tokens, idx):
     tok = tokens[idx]
     if (tok.type != token_type.RESERVED or tok.value != 'return'):
         print('error: no return in expression')
-        exit()
+        assert False
     idx += 1
 
     idx, expression = parse_expression(tokens, idx)
