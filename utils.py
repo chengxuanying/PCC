@@ -25,7 +25,10 @@ op_alphabet1 = [':', ';', ',',
 op_alphabet2 = ['+=', '-=', '*=', '/=', '%=',
                 '++', '--',
                 '>=', '<=', '!=', '==',
-                '||', '&&']
+                '||', '&&',
+                '&=', '|=', '^=']
+
+op_alphabet3 = ['<<=', '>>=']
 
 reserved_ids = ["bool", "char", "short", "int", "long",
                 "signed", "unsigned",
@@ -34,6 +37,9 @@ reserved_ids = ["bool", "char", "short", "int", "long",
 # parse
 unary_op = ['!', '~', '-']
 
+assign_op = ['=',
+             '+=', '-=', '*=', '/=', '%=',
+             '<<=', '>>=', '&=', '|=', '^=']
 
 def read_src(file = 'return_2.c'):
     with open(file) as f:

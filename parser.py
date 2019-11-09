@@ -312,7 +312,7 @@ def parse_expression(tokens, idx):
 
         tok = tokens[idx]
         if tok.type != token_type.OPERATOR or \
-                tok.value != '=':
+                tok.value not in utils.assign_op:
             idx -= 1
             raise parseError('no =')
         idx += 1
@@ -320,7 +320,8 @@ def parse_expression(tokens, idx):
         idx, expression = parse_expression(tokens, idx)
 
         assignment = Assignment(id_name=f_name,
-                                expression = expression)
+                                expression = expression,
+                                op = tok.value)
 
         return idx, assignment
     except:

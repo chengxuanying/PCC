@@ -73,6 +73,10 @@ def tokenize(src):
             src = src[idx:]
 
         # 操作符
+        elif src[:3] in utils.op_alphabet3:
+            tokens.append(token_type.Token(src[:3], token_type.OPERATOR))
+            src = src[3:]
+
         elif src[:2] in utils.op_alphabet2:
             tokens.append(token_type.Token(src[:2], token_type.OPERATOR))
             src = src[2:]

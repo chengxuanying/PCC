@@ -285,19 +285,129 @@ stack_index = -8
 
 
 class Assignment:
-    def __init__(self, id_name, expression=None):
+    def __init__(self, id_name, expression, op):
         self.id_name = id_name
         self.expression = expression
+        self.op = op
 
     def _asm(self):
         if self.id_name not in varMap:
             print('{} is not defined'.format(self.id_name))
             exit(0)
-
         src = ""
-        src += self.expression._asm()
-        src += "movq %rax,{}(%rbp)\n". \
-            format(varMap[self.id_name])
+
+        if self.op == '=':
+            src += self.expression._asm()
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '+=':
+            src += self.expression._asm()
+            src += "addq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '-=':
+            src += self.expression._asm()
+            src += "subq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '*=':
+            src += self.expression._asm()
+            src += "movq {}(%rbp),%rcx\n". \
+                format(varMap[self.id_name])
+            src += "imul %rcx\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '/=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "cdq\n"
+            src += "idiv %rcx\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '%=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "cdq\n"
+            src += "idiv %rcx\n"
+
+            src += "movq %rdx,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '<<=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "shll %cl,%eax\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '>>=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "shrl %cl,%eax\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '&=': # P61
+            src += self.expression._asm()
+            src += "push %rax\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "pop %rcx\n"
+            src += "and %rcx,%rax\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '^=':
+            src += self.expression._asm()
+            src += "push %rax\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "pop %rcx\n"
+            src += "xor %rcx,%rax\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
+
+        elif self.op == '|=':
+            src += self.expression._asm()
+            src += "push %rax\n"
+
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+            src += "pop %rcx\n"
+            src += "or %rcx,%rax\n"
+
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.id_name])
 
         return src
 
