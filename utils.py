@@ -35,9 +35,11 @@ reserved_ids = ["bool", "char", "short", "int", "long",
                 "if", "else", "while", "do", "return"]
 
 # parse
-unary_op = ['!', '~', '-']
+unary_op = ['!', '~', '-',
+            '++', '--']
 
 assign_op = ['=',
+             ',',
              '+=', '-=', '*=', '/=', '%=',
              '<<=', '>>=', '&=', '|=', '^=']
 

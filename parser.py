@@ -16,19 +16,19 @@ class parseError(Exception):
 
 """
 <program> ::= <function>
-1- <function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
-1- <statement> ::= "return" <exp> ";"
+<function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
+<statement> ::= "return" <exp> ";"
               | <exp> ";"
               | "int" <id> [ = <exp>] ";" 
-1- <exp> ::= <id> "=" <exp> | <logical-or-exp>
-1- <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
+<exp> ::= <id> "=" <exp> | <logical-or-exp>
+<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
 <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-1- <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
-<unary_op> ::= "!" | "~" | "-"
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<unary_op> ::= "!" | "~" | "-"| ++ | --
 """
 
 

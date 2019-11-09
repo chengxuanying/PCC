@@ -23,6 +23,23 @@ class UnaryOP:
         elif self.op == '~':
             src += self.factor._asm()
             src += "not %rax\n"
+
+        elif self.op == '++':
+            src += self.factor._asm()
+            src += "inc %rax\n"
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.factor.id_name])
+
+        elif self.op == '--':
+            src += self.factor._asm()
+            src += "dec %rax\n"
+            src += "movq %rax,{}(%rbp)\n". \
+                format(varMap[self.factor.id_name])
+
+        else:
+            print("unknown operator")
+            exit(0)
+
         return src
 
 
@@ -370,7 +387,7 @@ class Assignment:
             src += "movq %rax,{}(%rbp)\n". \
                 format(varMap[self.id_name])
 
-        elif self.op == '&=': # P61
+        elif self.op == '&=':  # P61
             src += self.expression._asm()
             src += "push %rax\n"
 
@@ -409,7 +426,15 @@ class Assignment:
             src += "movq %rax,{}(%rbp)\n". \
                 format(varMap[self.id_name])
 
+        elif self.op == ',':
+            src += self.expression._asm()
+
+        else:
+            print("unknown operator")
+            exit(0)
+
         return src
+
 
 class Declaration:
     def __init__(self, type_name, id_name, expression=None):
