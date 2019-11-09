@@ -16,16 +16,32 @@ class parseError(Exception):
 
 """
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" <statement> "}"
-<statement> ::= "return" <exp> ";"
-<exp> ::= <term> { ("+" | "-") <term> }
+1- <function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
+1- <statement> ::= "return" <exp> ";"
+              | <exp> ";"
+              | "int" <id> [ = <exp>] ";" 
+1- <exp> ::= <id> "=" <exp> | <logical-or-exp>
+1- <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
+<logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
+<equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
+<relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
+<additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
+1- <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<unary_op> ::= "!" | "~" | "-"
 """
 
 
 def parse_factor(tokens, idx):
+    """
+    <factor> ::= "(" <exp> new ")" | <unary_op> <factor> | <int> | <id> new
+
+    :param tokens:
+    :param idx:
+    :return:
+    """
     # ( expression )
+
     try:
         tok = tokens[idx]
         if tok.type != token_type.OPERATOR or \
@@ -76,16 +92,31 @@ def parse_factor(tokens, idx):
     except:
         pass
 
-    print('error: parse_factor')
+    # id
+    try:
+        tok = tokens[idx]
+
+        if (tok.type != token_type.IDENTIFIER):
+            raise parseError('no IDENTIFIER')
+        idx += 1
+
+        variable = Variable(id_name=tok.value)
+
+        return idx, variable
+    except:
+        pass
+
+    # print('error: parse_factor')
     assert False
 
 
 def parse_term(tokens, idx):
     # term
     try:
+        # print(idx, tokens[idx])
         idx, factor = parse_factor(tokens, idx)
         term = Term(factor=factor)
-
+        # print(idx, tokens[idx])
         # * or / factor
         while True:
             try:
@@ -108,7 +139,7 @@ def parse_term(tokens, idx):
     except:
         pass
 
-    print('error: parse_term')
+    # print('error: parse_term')
     assert False
 
 
@@ -140,7 +171,7 @@ def parse_additive_expression(tokens, idx):
     except:
         pass
 
-    print('error: parse_additive_expression')
+    # print('error: parse_additive_expression')
     assert False
 
 
@@ -225,11 +256,18 @@ def parse_logical_and_expression(tokens, idx):
         pass
 
 
-def parse_expression(tokens, idx):
+def parse_logical_or_expression(tokens, idx):
+    """
+    <exp> ::= <id> "=" <exp> | <logical-or-exp>
+    <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
+    :param tokens:
+    :param idx:
+    :return:
+    """
     # ||
     try:
         idx, logical_and_expression = parse_logical_and_expression(tokens, idx)
-        expression = Expression(logical_and_expression=logical_and_expression)
+        expression = LogicalOrExpression(logical_and_expression=logical_and_expression)
 
         # || logical_and_expression
         while True:
@@ -241,9 +279,9 @@ def parse_expression(tokens, idx):
                 idx += 1
 
                 idx, logical_and_expression = parse_logical_and_expression(tokens, idx)
-                expression = Expression(logical_and_expression=logical_and_expression,
-                                        op=tok.value,
-                                        expression=expression)
+                expression = LogicalOrExpression(logical_and_expression=logical_and_expression,
+                                                 op=tok.value,
+                                                 expression=expression)
             except:
                 pass
 
@@ -251,27 +289,157 @@ def parse_expression(tokens, idx):
     except:
         pass
 
-    print('error: parse_expression')
+    # print('error: parse_logical_or_expression')
+    assert False
+
+
+def parse_expression(tokens, idx):
+    """
+    <exp> ::= <id> "=" <exp> | <logical-or-exp>
+    <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
+    :param tokens:
+    :param idx:
+    :return:
+    """
+    # ||
+
+    try:
+        tok = tokens[idx]
+        if tok.type != token_type.IDENTIFIER:
+            raise parseError('no IDENTIFIER')
+        idx += 1
+        f_name = tok.value
+
+        tok = tokens[idx]
+        if tok.type != token_type.OPERATOR or \
+                tok.value != '=':
+            idx -= 1
+            raise parseError('no =')
+        idx += 1
+
+        idx, expression = parse_expression(tokens, idx)
+
+        assignment = Assignment(id_name=f_name,
+                                expression = expression)
+
+        return idx, assignment
+    except:
+        pass
+
+    try:
+        # print(idx, tokens[idx])
+        idx, expression = parse_logical_or_expression(tokens, idx)
+        expression = Expression(logical_or_expression=expression)
+
+        return idx, expression
+    except:
+        pass
+
+    # print('error: parse_expression')
     assert False
 
 
 def parse_statement(tokens, idx):
-    tok = tokens[idx]
-    if (tok.type != token_type.RESERVED or tok.value != 'return'):
-        print('error: no return in expression')
-        assert False
-    idx += 1
+    """
+    <statement> ::= "return" <exp> ";"
+              | <exp> ";"
+              | "int" <id> [ = <exp> ] ";"
 
-    idx, expression = parse_expression(tokens, idx)
+    :param tokens:
+    :param idx:
+    :return:
+    """
 
-    tok = tokens[idx]
-    if (tok.type != token_type.OPERATOR or tok.value != ';'):
-        print('error: no ;')
-        exit()
-    idx += 1
+    try:
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'return'):
+            raise parseError('no return')
+        idx += 1
 
-    statement = Return(expression)
-    return idx, statement
+        idx, expression = parse_expression(tokens, idx)
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            print('error: no ;')
+            exit()
+        idx += 1
+
+        statement = Return(expression)
+        return idx, statement
+
+    except:
+        pass
+
+    # normal expression
+    try:
+        idx, expression = parse_expression(tokens, idx)
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            print('error: no ;')
+            exit()
+        idx += 1
+
+        return idx, expression
+
+    except:
+        pass
+
+    # int xxx [= xxx];
+    try:
+        tok = tokens[idx]
+        if tok.type != token_type.RESERVED or \
+                tok.value != 'int':
+            raise parseError('no int')
+        idx += 1
+
+        tok = tokens[idx]
+        if (tok.type != token_type.IDENTIFIER):
+            raise parseError('no int')
+        idx += 1
+        type_name = tok.value
+
+        id_name = tok.value
+
+        try:
+            tok = tokens[idx]
+            if tok.type != token_type.OPERATOR or \
+                    tok.value != '=':
+                raise parseError('no =')
+            idx += 1
+
+            idx, expression = parse_expression(tokens, idx)
+
+            declaration = Declaration(type_name=type_name,
+                                      id_name=id_name,
+                                      expression=expression)
+
+            tok = tokens[idx]
+            if (tok.type != token_type.OPERATOR or tok.value != ';'):
+                print('error: no ;')
+                exit()
+            idx += 1
+
+            return idx, declaration
+
+        except:
+            pass
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            print('error: no ;')
+            exit()
+        idx += 1
+
+        declaration = Declaration(type_name=type_name,
+                                  id_name=id_name)
+        return idx, declaration
+
+    except:
+        pass
+
+    print('error: parse_statement')
+    assert False
 
 
 def parse_function(tokens, idx):
@@ -309,28 +477,36 @@ def parse_function(tokens, idx):
 
     # sub function
     idx, statement = parse_statement(tokens, idx)
+    function = Function(fname=fname,
+                        rtype=rtype,
+                        statement=statement,
+                        function=None)
+
+    # more statement
+    while True:
+        if tokens[idx].value == '}':
+            break
+        # print(idx, tokens[idx])
+        idx, statement = parse_statement(tokens, idx)
+        function = Function(fname=fname,
+                            rtype=rtype,
+                            statement=statement,
+                            function=function)
 
     tok = tokens[idx]
-
     if (tok.type != token_type.OPERATOR or tok.value != '}'):
         print('error')
         exit()
     idx += 1
-
-    function = Function(fname=fname,
-                        rtype=rtype,
-                        statement=statement)
-
     return idx, function
 
 
 def parse_program(tokens, idx):
     idx, function = parse_function(tokens, idx)
-
     program = Program(function)
-    return idx, program
+
+    return program
 
 
 def parse(tokens, idx=0):
-    idx, program = parse_program(tokens, idx)
-    return program
+    return parse_program(tokens, idx)

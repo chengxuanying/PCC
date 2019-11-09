@@ -32,7 +32,7 @@ class Number:
         self.num = int(num)
 
     def _asm(self):
-        src = "movq ${}, %rax\n".format(self.num)
+        src = "movq ${},%rax\n".format(self.num)
         return src
 
 
@@ -93,7 +93,7 @@ class AdditiveExpression:
             src += self.expression._asm()
             src += "pop %rcx\n"
 
-            src += "addq %rcx, %rax\n"
+            src += "addq %rcx,%rax\n"
 
         else:  # -
             src += self.term._asm()
@@ -101,11 +101,11 @@ class AdditiveExpression:
             src += self.expression._asm()
             src += "pop %rcx\n"
 
-            src += "subq %rcx, %rax\n"
+            src += "subq %rcx,%rax\n"
         return src
 
 
-class Expression:
+class LogicalOrExpression:
     def __init__(self, logical_and_expression,
                  op=None, expression=None):
         self.logical_and_expression = logical_and_expression
@@ -261,6 +261,86 @@ class RelationalExpression:
             src += "cmpq %rax,%rcx\n"
             src += "movq $0,%rax\n"
             src += "setle %al\n"
+        return src
+
+
+class Expression:
+    def __init__(self, logical_or_expression,
+                 f_name=None, expression=None):
+        self.logical_or_expression = logical_or_expression
+        self.f_name = f_name
+        self.expression = expression
+
+    def _asm(self, reg='rax'):
+        if self.f_name is None:
+            return self.logical_or_expression._asm()
+
+        src = ""
+
+        return src
+
+
+varMap = {}
+stack_index = -8
+
+
+class Assignment:
+    def __init__(self, id_name, expression=None):
+        self.id_name = id_name
+        self.expression = expression
+
+    def _asm(self):
+        if self.id_name not in varMap:
+            print('{} is not defined'.format(self.id_name))
+            exit(0)
+
+        src = ""
+        src += self.expression._asm()
+        src += "movq %rax,{}(%rbp)\n". \
+            format(varMap[self.id_name])
+
+        return src
+
+class Declaration:
+    def __init__(self, type_name, id_name, expression=None):
+        self.type_name = type_name
+        self.id_name = id_name
+        self.expression = expression
+
+    def _asm(self):
+        if self.id_name in varMap:
+            print('{} is already defined'.format(self.id_name))
+            exit(0)
+
+        src = ""
+
+        # default value is zero!
+        if self.expression is None:
+            src += "movq $0,%rax\n"
+        else:
+            src += self.expression._asm()
+
+        src += "push %rax\n"
+
+        global stack_index
+        varMap[self.id_name] = stack_index
+        stack_index -= 8
+
+        return src
+
+
+class Variable:
+    def __init__(self, id_name):
+        self.id_name = id_name
+
+    def _asm(self):
+        if self.id_name not in varMap:
+            print('{} is not defined'.format(self.id_name))
+            exit(0)
+
+        src = ""
+        src += "movq {}(%rbp),%rax\n". \
+            format(varMap[self.id_name])
 
         return src
 
@@ -271,23 +351,50 @@ class Return:
 
     def _asm(self):
         src = ""
-        # src += "movl ${}, % eax\n".format(self.expression.get_value())
         src += self.expression._asm()
+        for _ in range(len(varMap.keys())):
+            src += "popq %rbp\n"
+        src += "popq %rbp\n"
         src += "ret\n"
         return src
 
 
 class Function:
-    def __init__(self, fname="main", rtype="int", statement=None):
+    def __init__(self, fname, rtype, statement, function=None):
         self.rtype = rtype
         self.fname = fname
         self.statement = statement
+        self.function = function
 
-    def _asm(self):
+    def _asm(self, header=True):
+        """
+        one line code also needs a header
+        :param header:
+        :return:
+        """
+        if self.function is None:
+            if header:
+                return self._header() + self.statement._asm()
+            else:
+                return self.statement._asm()
+
+        src = ""
+
+        if header:
+            src = self._header()
+
+        # add former lines
+        src += self.function._asm(header=False)
+        # add this line
+        src += self.statement._asm()
+        return src
+
+    def _header(self):
         src = ""
         src += '.globl _{}\n'.format(self.fname)
         src += '_{}:\n'.format(self.fname)
-        src += self.statement._asm()
+        src += 'pushq %rbp\n'
+        src += 'movq %rsp,%rbp\n'
         return src
 
 
