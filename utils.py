@@ -32,7 +32,8 @@ op_alphabet3 = ['<<=', '>>=']
 
 reserved_ids = ["bool", "char", "short", "int", "long",
                 "signed", "unsigned",
-                "if", "else", "while", "do", "return"]
+                "if", "else", "return",
+                "while", "do", "for", "break", "continue"]
 
 # parse
 unary_op = ['!', '~', '-',

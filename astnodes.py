@@ -302,6 +302,9 @@ scopeVarMap = {}
 
 stack_index = -8
 
+start_clause_global = None
+end_clause_global = None
+
 
 class Compound:
     def __init__(self, block_item, compound=None):
@@ -324,9 +327,8 @@ class Compound:
 
         return self.newBlock()
 
-    def newBlock(self, compound = True):
+    def newBlock(self, compound=True):
         src = ""
-
         # backup
         global varMap
         global scopeVarMap
@@ -348,6 +350,8 @@ class Compound:
         scopeVarMap = {}
         varMap = newVarMap
 
+        # print(varMap)
+        # print(scopeVarMap)
         src += '\n'
         if compound:
             src += self.compound._asm(header=False)
@@ -373,10 +377,12 @@ class Assignment:
 
     def _asm(self):
         offset = 0
+        # print(varMap)
+        # print(scopeVarMap)
         if self.id_name in scopeVarMap:
             offset = scopeVarMap[self.id_name]
 
-        elif self.id_name not in varMap:
+        elif self.id_name in varMap:
             offset = varMap[self.id_name]
 
         else:
@@ -544,6 +550,8 @@ class Variable:
         self.id_name = id_name
 
     def _asm(self):
+        # print(varMap)
+        # print(scopeVarMap)
         if self.id_name in scopeVarMap:
             src = ""
             src += "movq {}(%rbp),%rax\n". \
@@ -635,6 +643,89 @@ class Condition:
         return src
 
 
+class WhileExperssion:
+    def __init__(self, expression, statement):
+        self.statement = statement
+        self.expression = expression
+
+    def _asm(self):
+        start_clause = clausecounter.next()
+        end_clause = clausecounter.next()
+
+        global start_clause_global
+        global end_clause_global
+        start_clause_global = start_clause
+        end_clause_global = end_clause
+
+        src = ""
+        src += '{}:\n'.format(start_clause)
+        src += self.expression._asm()
+
+        src += 'cmpq $0,%rax\n'
+        src += 'je {}\n'.format(end_clause)
+
+        src += self.statement._asm()
+        src += 'jmp {}\n'.format(start_clause)
+
+        src += '{}:\n'.format(end_clause)
+
+        start_clause_global = None
+        end_clause_global = None
+
+        return src
+
+
+class DoExperssion:
+    def __init__(self, statement, expression):
+        self.statement = statement
+        self.expression = expression
+
+    def _asm(self):
+        start_clause = clausecounter.next()
+        end_clause = clausecounter.next()
+
+        global start_clause_global
+        global end_clause_global
+        start_clause_global = start_clause
+        end_clause_global = end_clause
+
+        src = ""
+        src += '{}:\n'.format(start_clause)
+        src += self.statement._asm()
+
+        src += self.expression._asm()
+        src += 'cmpq $0,%rax\n'
+        src += 'jne {}\n'.format(start_clause)
+        src += '{}:\n'.format(end_clause)
+
+        start_clause_global = None
+        end_clause_global = None
+
+        return src
+
+
+class Break:
+    def __init__(self):
+        pass
+
+    def _asm(self):
+        if end_clause_global is None:
+            print('error: can not use break now')
+        src = 'jmp {}\n'.format(end_clause_global)
+        return src
+
+
+class Continue:
+    def __init__(self):
+        pass
+
+    def _asm(self):
+        if start_clause_global is None:
+            print('error: can not use continue now')
+        src = 'jmp {}\n'.format(start_clause_global)
+        return src
+
+
 class Function:
     def __init__(self, fname, rtype, statement, function=None):
         self.rtype = rtype
@@ -662,6 +753,7 @@ class Function:
         # add former lines
         src += self.function._asm(header=False)
         # add this line
+        # print(self.statement)
         src += self.statement._asm()
         return src
 

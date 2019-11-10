@@ -26,7 +26,6 @@ class parseError(Exception):
 
 <function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
 
-<exp> ::= <id> "=" <exp> | <logical-or-exp>
 <exp> ::= <id> "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
@@ -411,7 +410,6 @@ def parse_declaration(tokens, idx):
         idx += 1
         type_name = tok.value
 
-
         tok = tokens[idx]
         if (tok.type != token_type.IDENTIFIER):
             raise parseError('no int')
@@ -552,7 +550,6 @@ def parse_statement(tokens, idx):
 
     #  | "{" { <block-item> } "}
     old_idx = idx
-    # print(idx, tokens[idx])
     try:
 
         tok = tokens[idx]
@@ -562,13 +559,13 @@ def parse_statement(tokens, idx):
 
         try:
             idx, block_item = parse_block_item(tokens, idx)
-            compound = Compound(block_item = block_item)
+            compound = Compound(block_item=block_item)
 
             while True:
                 try:
                     idx, block_item = parse_block_item(tokens, idx)
-                    compound = Compound(block_item = block_item,
-                                        compound = compound)
+                    compound = Compound(block_item=block_item,
+                                        compound=compound)
                 except:
                     break
 
@@ -580,7 +577,109 @@ def parse_statement(tokens, idx):
             raise parseError('no }')
         idx += 1
 
-        return idx,compound
+        return idx, compound
+
+    except:
+        idx = old_idx
+
+    # "break" ";"
+    old_idx = idx
+    try:
+
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'break'):
+            raise parseError('no break')
+        idx += 1
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            raise parseError('no ;')
+        idx += 1
+
+        return idx, Break()
+
+    except:
+        idx = old_idx
+
+    # "continue" ";"
+    old_idx = idx
+    try:
+
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'continue'):
+            raise parseError('no continue')
+        idx += 1
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            raise parseError('no ;')
+        idx += 1
+
+        return idx, Break()
+
+    except:
+        idx = old_idx
+
+    # "do" <statement> "while" <exp> ";"
+    old_idx = idx
+    try:
+
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'do'):
+            raise parseError('no do')
+        idx += 1
+
+        statement = None
+        try:
+            idx, statement = parse_statement(tokens, idx)
+        except:
+            raise parseError('no statement')
+
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'while'):
+            raise parseError('no while')
+        idx += 1
+
+        expression = None
+        try:
+            idx, expression = parse_expression(tokens, idx)
+        except:
+            raise parseError('no expression')
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            raise parseError('no ;')
+        idx += 1
+
+        return idx, DoExperssion(statement=statement,
+                                 expression=expression)
+
+    except:
+        idx = old_idx
+
+    # "while" <exp>  <statement>
+    old_idx = idx
+    try:
+
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'while'):
+            raise parseError('no do')
+        idx += 1
+
+        expression = None
+        try:
+            idx, expression = parse_expression(tokens, idx)
+        except:
+            raise parseError('no expression')
+
+        statement = None
+        try:
+            idx, statement = parse_statement(tokens, idx)
+        except:
+            raise parseError('no statement')
+
+        return idx, WhileExperssion(statement=statement,
+                                    expression=expression)
 
     except:
         idx = old_idx
