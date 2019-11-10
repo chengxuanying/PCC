@@ -494,6 +494,34 @@ class Return:
         return src
 
 
+class ConditionExpression:
+    def __init__(self, logical_or_expression, expression=None, condition_expression=None):
+        self.logical_or_expression = logical_or_expression
+        self.expression = expression
+        self.condition_expression = condition_expression
+
+    def _asm(self, reg='rax'):
+        if self.expression is None:
+            return self.logical_or_expression._asm()
+
+        src = ""
+
+        # if_clause = clausecounter.next()
+        else_clause = clausecounter.next()
+        end_clause = clausecounter.next()
+
+        src += self.logical_or_expression._asm()
+        src += 'cmpq $0,%rax\n'
+        src += 'je {}\n'.format(else_clause)
+        src += self.expression._asm()
+        src += 'jmp {}\n'.format(end_clause)
+
+        src += '{}:\n'.format(else_clause)
+        src += self.condition_expression._asm()
+        src += '{}:\n'.format(end_clause)
+
+        return src
+
 class Condition:
     def __init__(self, condition_expression, if_statement, else_statement=None):
         self.condition_expression = condition_expression
@@ -521,6 +549,7 @@ class Condition:
         src += '{}:\n'.format(end_clause)
 
         return src
+
 
 class Function:
     def __init__(self, fname, rtype, statement, function=None):

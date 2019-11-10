@@ -17,12 +17,14 @@ class parseError(Exception):
 """
 <program> ::= <function>
 <function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
--<statement> ::= "return" <exp> ";"
+<statement> ::= "return" <exp> ";"
               | <exp> ";"
               | "int" <id> [ = <exp> ] ";"
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
 <exp> ::= <id> "=" <exp> | <logical-or-exp>
-<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
+<exp> ::= <id> "=" <exp> | <conditional-exp>
+-<conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
+-<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
 <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
@@ -294,6 +296,51 @@ def parse_logical_or_expression(tokens, idx):
     assert False
 
 
+def parse_condition_expression(tokens, idx):
+    """
+    -<conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
+    -<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
+    :param tokens:
+    :param idx:
+    :return:
+    """
+
+    try:
+        idx, logical_or_expression = parse_logical_or_expression(tokens, idx)
+        condition_expression = ConditionExpression(logical_or_expression=logical_or_expression)
+
+        try:
+            old_idx = idx
+            tok = tokens[idx]
+            if (tok.type != token_type.OPERATOR or tok.value != '?'):
+                raise parseError('no ?')
+            idx += 1
+
+            idx, expression = parse_expression(tokens, idx)
+
+            tok = tokens[idx]
+            if (tok.type != token_type.OPERATOR or tok.value != ':'):
+                idx = old_idx
+                raise parseError('no :')
+            idx += 1
+
+            idx, condition_expression = parse_condition_expression(tokens, idx)
+            condition_expression = ConditionExpression(logical_or_expression=logical_or_expression,
+                                                       expression=expression,
+                                                       condition_expression=condition_expression)
+            return idx, condition_expression
+
+        except:
+            pass
+
+        return idx, condition_expression
+    except:
+        pass
+
+    # print('error: parse_condition_expression')
+    assert False
+
+
 def parse_expression(tokens, idx):
     """
     <exp> ::= <id> "=" <exp> | <logical-or-exp>
@@ -328,9 +375,10 @@ def parse_expression(tokens, idx):
     except:
         pass
 
+    # or -> ?:
     try:
         # print(idx, tokens[idx])
-        idx, expression = parse_logical_or_expression(tokens, idx)
+        idx, expression = parse_condition_expression(tokens, idx)
         expression = Expression(logical_or_expression=expression)
 
         return idx, expression
@@ -402,7 +450,7 @@ def parse_declaration(tokens, idx):
     except:
         pass
 
-    print('error: parse_declaration')
+    # print('error: parse_declaration')
     assert False
 
 
@@ -520,8 +568,6 @@ def parse_block_item(tokens, idx):
     except:
         pass
 
-
-
     print('error: parse_block_item')
     assert False
 
@@ -581,6 +627,7 @@ def parse_function(tokens, idx):
     if (tok.type != token_type.OPERATOR or tok.value != '}'):
         print('error')
         exit()
+
     idx += 1
     return idx, function
 
@@ -589,6 +636,8 @@ def parse_program(tokens, idx):
     idx, function = parse_function(tokens, idx)
     program = Program(function)
 
+    # if idx!= len(tokens):
+    #     exit(1)
     return program
 
 
