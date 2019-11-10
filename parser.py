@@ -458,6 +458,36 @@ def parse_declaration(tokens, idx):
     assert False
 
 
+def parse_extended_statement(tokens, idx):
+    # normal expression
+    try:
+        idx, expression = parse_expression(tokens, idx)
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            # print('error: no ;')
+        idx += 1
+
+        return idx, expression
+
+    except:
+        pass
+
+    # nop expression
+    try:
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            # print('error: no ;')
+            exit()
+        idx += 1
+
+        return idx, NopExpression()
+    except:
+        pass
+
+    assert False
+
+
 def parse_statement(tokens, idx):
     """
     <statement> ::= "return" <exp> ";"
@@ -489,18 +519,10 @@ def parse_statement(tokens, idx):
     except:
         pass
 
-    # normal expression
+    # parse_extended_statement
     try:
-        idx, expression = parse_expression(tokens, idx)
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            print('error: no ;')
-            exit()
-        idx += 1
-
-        return idx, expression
-
+        idx, expression = parse_extended_statement(tokens, idx)
+        return idx,expression
     except:
         pass
 

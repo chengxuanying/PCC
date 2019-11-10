@@ -297,6 +297,14 @@ class Expression:
         return src
 
 
+class NopExpression:
+    def __init__(self):
+        pass
+
+    def _asm(self):
+        return ""
+
+
 varMap = {}
 scopeVarMap = {}
 
