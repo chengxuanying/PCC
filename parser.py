@@ -17,9 +17,10 @@ class parseError(Exception):
 """
 <program> ::= <function>
 <function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
-<statement> ::= "return" <exp> ";"
+-<statement> ::= "return" <exp> ";"
               | <exp> ";"
-              | "int" <id> [ = <exp>] ";" 
+              | "int" <id> [ = <exp> ] ";"
+              | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
 <exp> ::= <id> "=" <exp> | <logical-or-exp>
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -320,8 +321,8 @@ def parse_expression(tokens, idx):
         idx, expression = parse_expression(tokens, idx)
 
         assignment = Assignment(id_name=f_name,
-                                expression = expression,
-                                op = tok.value)
+                                expression=expression,
+                                op=tok.value)
 
         return idx, assignment
     except:
@@ -340,53 +341,15 @@ def parse_expression(tokens, idx):
     assert False
 
 
-def parse_statement(tokens, idx):
+def parse_declaration(tokens, idx):
     """
-    <statement> ::= "return" <exp> ";"
-              | <exp> ";"
-              | "int" <id> [ = <exp> ] ";"
-
+    <declaration> ::= "int" <id> [ = <exp> ] ";"
     :param tokens:
     :param idx:
     :return:
     """
-
-    try:
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'return'):
-            raise parseError('no return')
-        idx += 1
-
-        idx, expression = parse_expression(tokens, idx)
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            print('error: no ;')
-            exit()
-        idx += 1
-
-        statement = Return(expression)
-        return idx, statement
-
-    except:
-        pass
-
-    # normal expression
-    try:
-        idx, expression = parse_expression(tokens, idx)
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            print('error: no ;')
-            exit()
-        idx += 1
-
-        return idx, expression
-
-    except:
-        pass
-
     # int xxx [= xxx];
+
     try:
         tok = tokens[idx]
         if tok.type != token_type.RESERVED or \
@@ -439,7 +402,127 @@ def parse_statement(tokens, idx):
     except:
         pass
 
+    print('error: parse_declaration')
+    assert False
+
+
+def parse_statement(tokens, idx):
+    """
+    <statement> ::= "return" <exp> ";"
+                  | <exp> ";"
+                  | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+
+    :param tokens:
+    :param idx:
+    :return:
+    """
+
+    try:
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'return'):
+            raise parseError('no return')
+        idx += 1
+
+        idx, expression = parse_expression(tokens, idx)
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            print('error: no ;')
+            exit()
+        idx += 1
+
+        statement = Return(expression)
+        return idx, statement
+
+    except:
+        pass
+
+    # normal expression
+    try:
+        idx, expression = parse_expression(tokens, idx)
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ';'):
+            print('error: no ;')
+            exit()
+        idx += 1
+
+        return idx, expression
+
+    except:
+        pass
+
+    # "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+    try:
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'if'):
+            raise parseError('no if')
+        idx += 1
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != '('):
+            raise parseError('no (')
+        idx += 1
+
+        idx, condition_expression = parse_expression(tokens, idx)
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ')'):
+            raise parseError('no )')
+        idx += 1
+
+        idx, if_statement = parse_statement(tokens, idx)
+
+        try:
+
+            tok = tokens[idx]
+            if (tok.type != token_type.RESERVED or tok.value != 'else'):
+                raise parseError('no else')
+            idx += 1
+
+            idx, else_statement = parse_statement(tokens, idx)
+
+            condition = Condition(condition_expression=condition_expression,
+                                  if_statement=if_statement,
+                                  else_statement=else_statement)
+            return idx, condition
+        except:
+            pass
+
+        condition = Condition(condition_expression=condition_expression,
+                              if_statement=if_statement)
+        return idx, condition
+
+    except:
+        pass
+
     print('error: parse_statement')
+    assert False
+
+
+def parse_block_item(tokens, idx):
+    """
+    <block-item> ::= <statement> | <declaration>
+    :param tokens:
+    :param idx:
+    :return:
+    """
+
+    try:
+        idx, declaration = parse_declaration(tokens, idx)
+        return idx, declaration
+    except:
+        pass
+
+    try:
+        idx, statement = parse_statement(tokens, idx)
+        return idx, statement
+    except:
+        pass
+
+
+
+    print('error: parse_block_item')
     assert False
 
 
@@ -477,7 +560,7 @@ def parse_function(tokens, idx):
     idx += 1
 
     # sub function
-    idx, statement = parse_statement(tokens, idx)
+    idx, statement = parse_block_item(tokens, idx)
     function = Function(fname=fname,
                         rtype=rtype,
                         statement=statement,
@@ -488,7 +571,7 @@ def parse_function(tokens, idx):
         if tokens[idx].value == '}':
             break
         # print(idx, tokens[idx])
-        idx, statement = parse_statement(tokens, idx)
+        idx, statement = parse_block_item(tokens, idx)
         function = Function(fname=fname,
                             rtype=rtype,
                             statement=statement,
