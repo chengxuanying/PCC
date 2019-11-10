@@ -25,16 +25,36 @@ class UnaryOP:
             src += "not %rax\n"
 
         elif self.op == '++':
+            id_name = self.factor.id_name
+            offset = None
+
+            if id_name in scopeVarMap:
+                offset = scopeVarMap[self.factor.id_name]
+            elif id_name in varMap:
+                offset = varMap[self.factor.id_name]
+            else:
+                print('{} is not defined'.format(id_name))
+                exit(0)
+
             src += self.factor._asm()
             src += "inc %rax\n"
-            src += "movq %rax,{}(%rbp)\n". \
-                format(varMap[self.factor.id_name])
+            src += "movq %rax,{}(%rbp)\n".format(offset)
 
         elif self.op == '--':
+            id_name = self.factor.id_name
+            offset = None
+
+            if id_name in scopeVarMap:
+                offset = scopeVarMap[self.factor.id_name]
+            elif id_name in varMap:
+                offset = varMap[self.factor.id_name]
+            else:
+                print('{} is not defined'.format(id_name))
+                exit(0)
+
             src += self.factor._asm()
             src += "dec %rax\n"
-            src += "movq %rax,{}(%rbp)\n". \
-                format(varMap[self.factor.id_name])
+            src += "movq %rax,{}(%rbp)\n".format(offset)
 
         else:
             print("unknown operator")
@@ -81,7 +101,7 @@ class Term:
 
             src += "imul %rcx\n"  # P545
 
-        else:  # /
+        elif self.op == '/':  # /
             src += self.factor._asm()
             src += "push %rax\n"
             src += self.term._asm()
@@ -89,6 +109,16 @@ class Term:
 
             src += "pop %rcx\n"
             src += "idiv %rcx\n"  # P542
+
+        else:
+            src += self.factor._asm()
+            src += "push %rax\n"
+            src += self.term._asm()
+            src += "cdq\n"
+
+            src += "pop %rcx\n"
+            src += "idiv %rcx\n"  # P542
+            src += "movq %rdx,%rax\n"
         return src
 
 
@@ -370,6 +400,7 @@ class Compound:
         stack_index += 8 * len(scopeVarMap)
         src += '\n'
 
+
         # restore varMap
         varMap = oldVarMap
         scopeVarMap = oldScopeVarMap
@@ -587,6 +618,7 @@ class Return:
 
         # for _ in range(len(scopeVarMap.keys())):
         #     src += "popq %rbp\n"
+        # print(scopeVarMap, varMap)
         src += "addq ${}, %rsp\n".format((len(scopeVarMap) + len(varMap)) * 8)
         src += "popq %rbp\n"
         src += "ret\n"
@@ -605,7 +637,6 @@ class ConditionExpression:
 
         src = ""
 
-        # if_clause = clausecounter.next()
         else_clause = clausecounter.next()
         end_clause = clausecounter.next()
 
@@ -647,6 +678,53 @@ class Condition:
             src += self.else_statement._asm()
 
         src += '{}:\n'.format(end_clause)
+
+        return src
+
+
+class ForExpression:
+    def __init__(self, expression1, expression2, expression3, statement):
+        self.expression1 = expression1
+        self.expression2 = expression2
+        self.expression3 = expression3
+        self.statement = statement
+
+    def _asm(self):
+        start_clause = clausecounter.next()
+        end_clause = clausecounter.next()
+        add_clause = clausecounter.next()
+
+        global start_clause_global
+        global end_clause_global
+
+        start_clause_global = add_clause
+        end_clause_global = end_clause
+
+        # body
+        src = ""
+        src += self.expression1._asm()
+
+        src += '{}:\n'.format(start_clause)
+        if type(self.expression2) == NopExpression:
+            # for (;1;) always 1
+            pass
+        else:
+            src += self.expression2._asm()
+            src += 'cmpq $0,%rax\n'
+            src += 'je {}\n'.format(end_clause)
+
+        src += self.statement._asm()
+
+        src += '{}:\n'.format(add_clause)
+        src += self.expression3._asm()
+        src += 'jmp {}\n'.format(start_clause)
+
+        src += '{}:\n'.format(end_clause)
+
+        # end body
+
+        start_clause_global = None
+        end_clause_global = None
 
         return src
 
@@ -730,6 +808,7 @@ class Continue:
     def _asm(self):
         if start_clause_global is None:
             print('error: can not use continue now')
+        # print(start_clause_global)
         src = 'jmp {}\n'.format(start_clause_global)
         return src
 

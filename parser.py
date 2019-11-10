@@ -129,7 +129,7 @@ def parse_term(tokens, idx):
             try:
                 tok = tokens[idx]
                 if tok.type != token_type.OPERATOR or \
-                        tok.value not in ['*', '/']:
+                        tok.value not in ['*', '/', '%']:
                     break
                     # raise parseError('no * or /')
 
@@ -466,6 +466,7 @@ def parse_extended_statement(tokens, idx):
         tok = tokens[idx]
         if (tok.type != token_type.OPERATOR or tok.value != ';'):
             # print('error: no ;')
+            exit()
         idx += 1
 
         return idx, expression
@@ -522,7 +523,7 @@ def parse_statement(tokens, idx):
     # parse_extended_statement
     try:
         idx, expression = parse_extended_statement(tokens, idx)
-        return idx,expression
+        return idx, expression
     except:
         pass
 
@@ -637,7 +638,7 @@ def parse_statement(tokens, idx):
             raise parseError('no ;')
         idx += 1
 
-        return idx, Break()
+        return idx, Continue()
 
     except:
         idx = old_idx
@@ -685,7 +686,7 @@ def parse_statement(tokens, idx):
 
         tok = tokens[idx]
         if (tok.type != token_type.RESERVED or tok.value != 'while'):
-            raise parseError('no do')
+            raise parseError('no while')
         idx += 1
 
         expression = None
@@ -706,6 +707,86 @@ def parse_statement(tokens, idx):
     except:
         idx = old_idx
 
+    #  "for" "(" <exp-option> ";" <exp-option> ";" <exp-option> ")" <statement>
+    #  "for" "(" <declaration> ; <exp-option> ";" <exp-option> ")" <statement>
+
+    old_idx = idx
+    try:
+
+        tok = tokens[idx]
+        if (tok.type != token_type.RESERVED or tok.value != 'for'):
+            raise parseError('no for')
+        idx += 1
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != '('):
+            raise parseError('no (')
+        idx += 1
+
+        # content
+        expression1 = None
+        try:
+            idx, expression1 = parse_extended_statement(tokens, idx)
+        except:
+            expression1 = None
+            # then try this
+            try:
+                idx, expression1 = parse_declaration(tokens, idx)
+            except:
+                expression1 = None
+
+        if expression1 is None:
+            raise parseError('no expression1')
+
+        expression2 = None
+        try:
+            idx, expression2 = parse_extended_statement(tokens, idx)
+        except:
+            raise parseError('no expression2')
+
+        expression3 = None
+
+        # normal expression
+        try:
+            idx, expression3 = parse_expression(tokens, idx)
+        except:
+            expression3 = None
+
+            # then try nop expression
+            try:
+
+                tok = tokens[idx]
+                if (tok.type != token_type.OPERATOR or tok.value != ')'):
+                    exit()
+
+                expression3 = NopExpression()
+            except:
+                expression3 = None
+
+        if expression3 is None:
+            raise parseError('no expression3')
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != ')'):
+            raise parseError('no )')
+        idx += 1
+
+        # body
+
+        statement = None
+
+        try:
+            idx, statement = parse_statement(tokens, idx)
+        except:
+            raise parseError('no block_item')
+
+        return idx, ForExpression(expression1=expression1,
+                                  expression2=expression2,
+                                  expression3=expression3,
+                                  statement=statement)
+
+    except:
+        idx = old_idx
     # print('error: parse_statement')
     assert False
 
@@ -725,12 +806,15 @@ def parse_block_item(tokens, idx):
         pass
 
     try:
+
         idx, statement = parse_statement(tokens, idx)
+
         return idx, statement
     except:
         pass
 
     # print('error: parse_block_item')
+    # print(idx, tokens[idx])
     assert False
 
 
