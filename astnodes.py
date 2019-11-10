@@ -298,7 +298,71 @@ class Expression:
 
 
 varMap = {}
+scopeVarMap = {}
+
 stack_index = -8
+
+
+class Compound:
+    def __init__(self, block_item, compound=None):
+        self.block_item = block_item
+        self.compound = compound
+
+    def _asm(self, header=True):
+
+        if self.compound is None:
+            if not header:
+                return self.block_item._asm()
+            else:
+                return self.newBlock(compound=False)
+
+        if not header:
+            src = ""
+            src += self.compound._asm(header=False)
+            src += self.block_item._asm()
+            return src
+
+        return self.newBlock()
+
+    def newBlock(self, compound = True):
+        src = ""
+
+        # backup
+        global varMap
+        global scopeVarMap
+        global stack_index
+
+        oldVarMap = varMap
+        oldScopeVarMap = scopeVarMap
+        # print('block')
+        # merge
+        newVarMap = {}
+        for k, v in scopeVarMap.items():
+            newVarMap[k] = v
+
+        for k, v in varMap.items():
+            if k not in newVarMap:  # region > global
+                newVarMap[k] = v
+
+        # change varMap
+        scopeVarMap = {}
+        varMap = newVarMap
+
+        src += '\n'
+        if compound:
+            src += self.compound._asm(header=False)
+        src += self.block_item._asm()
+
+        # pop
+        src += "addq ${}, %rsp\n".format(len(scopeVarMap) * 8)
+        stack_index += 8 * len(scopeVarMap)
+        src += '\n'
+
+        # restore varMap
+        varMap = oldVarMap
+        scopeVarMap = oldScopeVarMap
+
+        return src
 
 
 class Assignment:
@@ -443,7 +507,10 @@ class Declaration:
         self.expression = expression
 
     def _asm(self):
-        if self.id_name in varMap:
+        # print(self.id_name, self.expression)
+        # print(varMap,scopeVarMap)
+
+        if self.id_name in scopeVarMap:
             print('{} is already defined'.format(self.id_name))
             exit(0)
 
@@ -458,7 +525,7 @@ class Declaration:
         src += "push %rax\n"
 
         global stack_index
-        varMap[self.id_name] = stack_index
+        scopeVarMap[self.id_name] = stack_index
         stack_index -= 8
 
         return src
@@ -469,13 +536,19 @@ class Variable:
         self.id_name = id_name
 
     def _asm(self):
-        if self.id_name not in varMap:
+        if self.id_name in scopeVarMap:
+            src = ""
+            src += "movq {}(%rbp),%rax\n". \
+                format(scopeVarMap[self.id_name])
+
+        elif self.id_name in varMap:
+            src = ""
+            src += "movq {}(%rbp),%rax\n". \
+                format(varMap[self.id_name])
+
+        else:
             print('{} is not defined'.format(self.id_name))
             exit(0)
-
-        src = ""
-        src += "movq {}(%rbp),%rax\n". \
-            format(varMap[self.id_name])
 
         return src
 
@@ -487,8 +560,10 @@ class Return:
     def _asm(self):
         src = ""
         src += self.expression._asm()
-        for _ in range(len(varMap.keys())):
-            src += "popq %rbp\n"
+
+        # for _ in range(len(scopeVarMap.keys())):
+        #     src += "popq %rbp\n"
+        src += "addq ${}, %rsp\n".format((len(scopeVarMap) + len(varMap)) * 8)
         src += "popq %rbp\n"
         src += "ret\n"
         return src
@@ -521,6 +596,7 @@ class ConditionExpression:
         src += '{}:\n'.format(end_clause)
 
         return src
+
 
 class Condition:
     def __init__(self, condition_expression, if_statement, else_statement=None):
@@ -595,4 +671,7 @@ class Program:
         self.function = function
 
     def __str__(self):
-        return self.function._asm()
+        src = self.function._asm()
+        # print(varMap)
+        # print(scopeVarMap)
+        return src

@@ -16,15 +16,20 @@ class parseError(Exception):
 
 """
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
-              | "int" <id> [ = <exp> ] ";"
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+              | {<block-item> list}
+              
+<declaration> ::= "int" <id> [ = <exp> ] ";"
+<block-item> ::= <statement> | <declaration>
+
+<function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
+
 <exp> ::= <id> "=" <exp> | <logical-or-exp>
 <exp> ::= <id> "=" <exp> | <conditional-exp>
--<conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
--<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
+<conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
+<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
 <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
@@ -404,12 +409,13 @@ def parse_declaration(tokens, idx):
                 tok.value != 'int':
             raise parseError('no int')
         idx += 1
+        type_name = tok.value
+
 
         tok = tokens[idx]
         if (tok.type != token_type.IDENTIFIER):
             raise parseError('no int')
         idx += 1
-        type_name = tok.value
 
         id_name = tok.value
 
@@ -544,7 +550,42 @@ def parse_statement(tokens, idx):
     except:
         pass
 
-    print('error: parse_statement')
+    #  | "{" { <block-item> } "}
+    old_idx = idx
+    # print(idx, tokens[idx])
+    try:
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != '{'):
+            raise parseError('no {')
+        idx += 1
+
+        try:
+            idx, block_item = parse_block_item(tokens, idx)
+            compound = Compound(block_item = block_item)
+
+            while True:
+                try:
+                    idx, block_item = parse_block_item(tokens, idx)
+                    compound = Compound(block_item = block_item,
+                                        compound = compound)
+                except:
+                    break
+
+        except:
+            raise parseError('no block_item')
+
+        tok = tokens[idx]
+        if (tok.type != token_type.OPERATOR or tok.value != '}'):
+            raise parseError('no }')
+        idx += 1
+
+        return idx,compound
+
+    except:
+        idx = old_idx
+
+    # print('error: parse_statement')
     assert False
 
 
@@ -568,7 +609,7 @@ def parse_block_item(tokens, idx):
     except:
         pass
 
-    print('error: parse_block_item')
+    # print('error: parse_block_item')
     assert False
 
 
