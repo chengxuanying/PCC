@@ -73,6 +73,40 @@ class Number:
         return src
 
 
+varMap = {}
+scopeVarMap = {}
+paramMap = {}
+
+stack_index = -8
+
+
+class Func_Call:
+    def __init__(self, fname, parameters):
+        self.fname = fname
+        self.parameters = parameters
+
+    def _asm(self, reg='eax'):
+        src = ""
+        # src += "movq %rsp,%rax\n"
+        # src += "subq ${}, %rax\n".format(4 * (len(self.parameters) + 1))
+        # src += "xor  %rdx,%rdx\n"
+        # src += "movq $0x20,%rcx\n"
+        # src += "idiv %rcx\n"
+        # src += "subq %rdx,%rsp\n"
+        # src += "pushq %rdx\n"
+
+        for param in reversed(self.parameters):
+            src += param._asm()
+            src += "pushq %rax\n"
+        src += "callq _{}\n".format(self.fname)
+        src += "addq ${}, %rsp\n".format(8 * len(self.parameters))
+
+        # src += "popq %rdx\n"
+        # src += "addq %rdx,%rsp\n"
+
+        return src
+
+
 class Factor:
     def __init__(self, expression=None):
         self.expression = expression
@@ -335,11 +369,6 @@ class NopExpression:
         return ""
 
 
-varMap = {}
-scopeVarMap = {}
-
-stack_index = -8
-
 start_clause_global = None
 end_clause_global = None
 
@@ -399,7 +428,6 @@ class Compound:
         src += "addq ${}, %rsp\n".format(len(scopeVarMap) * 8)
         stack_index += 8 * len(scopeVarMap)
         src += '\n'
-
 
         # restore varMap
         varMap = oldVarMap
@@ -600,7 +628,10 @@ class Variable:
             src = ""
             src += "movq {}(%rbp),%rax\n". \
                 format(varMap[self.id_name])
-
+        elif self.id_name in paramMap:
+            src = ""
+            src += "movq {}(%rbp),%rax\n". \
+                format(paramMap[self.id_name])
         else:
             print('{} is not defined'.format(self.id_name))
             exit(0)
@@ -619,7 +650,10 @@ class Return:
         # for _ in range(len(scopeVarMap.keys())):
         #     src += "popq %rbp\n"
         # print(scopeVarMap, varMap)
-        src += "addq ${}, %rsp\n".format((len(scopeVarMap) + len(varMap)) * 8)
+
+        # src += "addq ${}, %rsp\n".format((len(scopeVarMap) + len(varMap)) * 8)
+        src += "movq %rbp,%rsp\n"
+
         src += "popq %rbp\n"
         src += "ret\n"
         return src
@@ -813,11 +847,23 @@ class Continue:
         return src
 
 
+class Function_Declaration:
+    def __init__(self, fname, rtype, parameters=None, function=None):
+        self.rtype = rtype
+        self.fname = fname
+        self.parameters = parameters
+        self.function = function
+
+    def _asm(self):
+        return ""
+
+
 class Function:
-    def __init__(self, fname, rtype, statement, function=None):
+    def __init__(self, fname, rtype, statement, parameters=None, function=None):
         self.rtype = rtype
         self.fname = fname
         self.statement = statement
+        self.parameters = parameters
         self.function = function
 
     def _asm(self, header=True):
@@ -826,6 +872,7 @@ class Function:
         :param header:
         :return:
         """
+
         if self.function is None:
             if header:
                 return self._header() + self.statement._asm()
@@ -850,15 +897,31 @@ class Function:
         src += '_{}:\n'.format(self.fname)
         src += 'pushq %rbp\n'
         src += 'movq %rsp,%rbp\n'
+
+        # params
+        global paramMap
+        paramMap = {}
+
+        idx = 16
+        for param in self.parameters:
+            paramMap[param[1].value] = idx
+            idx += 8
         return src
 
 
 class Program:
-    def __init__(self, function=None):
+    def __init__(self, function, program=None):
         self.function = function
+        self.program = program
 
     def __str__(self):
-        src = self.function._asm()
         # print(varMap)
         # print(scopeVarMap)
+        return self._asm()
+
+    def _asm(self):
+        src = ""
+        if self.program is not None:
+            src += self.program._asm()
+        src += self.function._asm()
         return src

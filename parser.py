@@ -39,12 +39,49 @@ class parseError(Exception):
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
 <unary_op> ::= "!" | "~" | "-"| ++ | --
+<function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 """
 
 
+def parse_func_call(tokens, idx):
+    # <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
+    try:
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        fname = tok.value
+        idx, tok = utils.match(tokens, idx, OPERATOR, '(')
+        parameters = []
+
+        try:
+            idx, exp = parse_expression(tokens, idx)
+            parameters.append(exp)
+            while True:
+                idx, tok = utils.match(tokens, idx, OPERATOR, ',')
+                idx, exp = parse_expression(tokens, idx)
+                parameters.append(exp)
+        except:
+            pass
+
+        # print(parameters[0])
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, ')')
+        return idx, Func_Call(fname=fname,
+                              parameters=parameters)
+    except:
+        pass
+
+    assert False
+
+
 def parse_factor(tokens, idx):
+    # <function-call>
+    try:
+        idx, expression = parse_func_call(tokens, idx)
+        return idx, Factor(expression=expression)
+    except:
+        pass
+
     # "(" <exp> ")"
     try:
         idx, tok = utils.match(tokens, idx, OPERATOR, '(')
@@ -527,22 +564,60 @@ def parse_block_item(tokens, idx):
     assert False
 
 
+def parse_parameter_list(tokens, idx):
+    # [ "int" <id> { "," "int" <id> } ]
+    ret = []
+    try:
+        idx, tok1 = utils.match(tokens, idx, RESERVED, 'int')
+        idx, tok2 = utils.match_type(tokens, idx, IDENTIFIER)
+        ret.append([tok1, tok2])
+
+        old_idx = None
+        try:
+            while True:
+                old_idx = idx
+                idx, tok = utils.match(tokens, idx, OPERATOR, ',')
+                idx, tok1 = utils.match(tokens, idx, RESERVED, 'int')
+                idx, tok2 = utils.match_type(tokens, idx, IDENTIFIER)
+                ret.append([tok1, tok2])
+        except:
+            idx = old_idx
+
+    except:
+        pass
+    return idx, ret
+
+
 def parse_function(tokens, idx):
-    # <function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
+    # <function> ::= "int" <id> "(" [ "int" <id> { "," "int" <id> } ] ")" ( "{" { <block-item> } "}" | ";" )
     idx, tok = utils.match(tokens, idx, RESERVED, 'int')
     rtype = tok.value
-    idx, tok = utils.match(tokens, idx, IDENTIFIER, 'main')
+    idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
     fname = tok.value
 
     idx, tok = utils.match(tokens, idx, OPERATOR, '(')
+    idx, parameters = parse_parameter_list(tokens, idx)
     idx, tok = utils.match(tokens, idx, OPERATOR, ')')
+
+    # if it is declaration
+    try:
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+        return idx, Function_Declaration(fname=fname,
+                                         rtype=rtype,
+                                         parameters=parameters,
+                                         function=None)
+    except:
+        pass
+
+    # else it is defination
     idx, tok = utils.match(tokens, idx, OPERATOR, '{')
 
-    # sub function
+    # sub statement
     idx, statement = parse_block_item(tokens, idx)
     function = Function(fname=fname,
                         rtype=rtype,
                         statement=statement,
+                        parameters=parameters,
                         function=None)
 
     # more statement
@@ -554,6 +629,7 @@ def parse_function(tokens, idx):
         function = Function(fname=fname,
                             rtype=rtype,
                             statement=statement,
+                            parameters=parameters,
                             function=function)
 
     idx, tok = utils.match(tokens, idx, OPERATOR, '}')
@@ -562,7 +638,15 @@ def parse_function(tokens, idx):
 
 def parse_program(tokens, idx):
     idx, function = parse_function(tokens, idx)
-    program = Program(function)
+    program = Program(function=function)
+
+    try:
+        while True:
+            idx, function = parse_function(tokens, idx)
+            program = Program(function=function,
+                              program=program)
+    except:
+        pass
     return program
 
 

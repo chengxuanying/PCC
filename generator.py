@@ -4,7 +4,8 @@ def generate(ast, fname):
 
     src = []
     for line in str(ast).split('\n'):
-        if ':' in line:
+        if ':' in line or\
+                '.' in line:
             src.append(line)
         else:
             src.append('\t' + line)

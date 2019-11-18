@@ -32,7 +32,7 @@ op_alphabet2 = ['+=', '-=', '*=', '/=', '%=',
 
 op_alphabet3 = ['<<=', '>>=']
 
-reserved_ids = ["bool", "char", "short", "int", "long",
+reserved_ids = ["bool", "char", "short", "int", "long", "void",
                 "signed", "unsigned",
                 "if", "else", "return",
                 "while", "do", "for", "break", "continue"]

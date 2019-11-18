@@ -9,7 +9,8 @@ import sys
 #  ./test_compiler.sh "python3 ../pcc.py"
 #  python3 pcc.py return_2.c
 #  echo $?
-
+# TODO: int a=123,b=123;
+# TODo: float int[]
 if __name__ == '__main__':
     # print("PCC v1.0")
 
@@ -26,7 +27,6 @@ if __name__ == '__main__':
     # print(tokens)
 
     ast = parser.parse(tokens)
-
 
     generator.generate(ast, fname.replace('.c', '.s'))
 
