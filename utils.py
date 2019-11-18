@@ -1,3 +1,5 @@
+import token_type
+
 # lexer
 id_alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
                'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -6,12 +8,12 @@ id_alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
                '_']
 
 mapPair = {
-    '[' : ']',
-    '{' : '}',
-    '<' : '>',
-    '(' : ')',
-    '\'' : '\'',
-    '"' : '"',
+    '[': ']',
+    '{': '}',
+    '<': '>',
+    '(': ')',
+    '\'': '\'',
+    '"': '"',
 }
 
 num_alphabet = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.']
@@ -44,9 +46,11 @@ assign_op = ['=',
              '+=', '-=', '*=', '/=', '%=',
              '<<=', '>>=', '&=', '|=', '^=']
 
-def read_src(file = 'return_2.c'):
+
+def read_src(file='return_2.c'):
     with open(file) as f:
         return f.read()
+
 
 class ClauseCounter:
     def __init__(self):
@@ -55,3 +59,35 @@ class ClauseCounter:
     def next(self):
         self.cnt += 1
         return '_clause{}'.format(self.cnt)
+
+
+def match(tokens, idx, type, value):
+    tok = tokens[idx]
+    if (tok.type != type or tok.value != value):
+        raise "no {}:{}".format(type, value)
+    idx += 1
+    return idx, tok
+
+
+def match_type(tokens, idx, type):
+    tok = tokens[idx]
+    if (tok.type != type):
+        raise "no {}".format(type)
+    idx += 1
+    return idx, tok
+
+
+def match_value(tokens, idx, value):
+    tok = tokens[idx]
+    if (tok.value != value):
+        raise "no {}".format(value)
+    idx += 1
+    return idx, tok
+
+
+def match_type_values(tokens, idx, type, values):
+    tok = tokens[idx]
+    if (tok.type != type or tok.value not in values):
+        raise "no {}:{}".format(type, str(values))
+    idx += 1
+    return idx, tok

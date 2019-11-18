@@ -1,6 +1,7 @@
 import token_type
 import utils
 from astnodes import *
+from token_type import *
 
 
 class parseError(Exception):
@@ -16,16 +17,20 @@ class parseError(Exception):
 
 """
 <program> ::= <function>
-<statement> ::= "return" <exp> ";"
-              | <exp> ";"
-              | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
-              | {<block-item> list}
-              
-<declaration> ::= "int" <id> [ = <exp> ] ";"
-<block-item> ::= <statement> | <declaration>
-
 <function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
-
+<block-item> ::= <statement> | <declaration>
+<statement> ::= "return" <exp> ";"
+              | <exp-option> ";"
+              | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+              | "{" { <block-item> } "}
+              | "for" "(" <exp-option> ";" <exp-option> ";" <exp-option> ")" <statement>
+              | "for" "(" <declaration> <exp-option> ";" <exp-option> ")" <statement>
+              | "while" "(" <exp> ")" <statement>
+              | "do" <statement> "while" <exp> ";"
+              | "break" ";"
+              | "continue" ";"
+<exp-option> ::= <exp> | ""
+<declaration> ::= "int" <id> [ = <exp> ] ";"
 <exp> ::= <id> "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
@@ -40,76 +45,35 @@ class parseError(Exception):
 
 
 def parse_factor(tokens, idx):
-    """
-    <factor> ::= "(" <exp> new ")" | <unary_op> <factor> | <int> | <id> new
-
-    :param tokens:
-    :param idx:
-    :return:
-    """
-    # ( expression )
-
+    # "(" <exp> ")"
     try:
-        tok = tokens[idx]
-        if tok.type != token_type.OPERATOR or \
-                tok.value != '(':
-            raise parseError('no (')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, '(')
         idx, expression = parse_expression(tokens, idx)
-        factor = Factor(expression=expression)
-
-        tok = tokens[idx]
-        if tok.type != token_type.OPERATOR or \
-                tok.value != ')':
-            raise parseError('no )')
-        idx += 1
-
-        return idx, factor
+        idx, tok = utils.match(tokens, idx, OPERATOR, ')')
+        return idx, Factor(expression=expression)
     except:
         pass
 
-    # unary_op factor
-
+    # <unary_op> <factor>
     try:
-        tok = tokens[idx]
-        if tok.type != token_type.OPERATOR or \
-                tok.value not in utils.unary_op:
-            raise parseError('no unary_op')
-        idx += 1
-
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.unary_op)
         idx, factor = parse_factor(tokens, idx)
-        factor = UnaryOP(op=tok.value,
-                         factor=factor)
-
-        return idx, factor
+        return idx, UnaryOP(op=tok.value,
+                            factor=factor)
     except:
         pass
 
-    # int
+    # <int>
     try:
-        tok = tokens[idx]
-        if (tok.type != token_type.INT):
-            raise parseError('no int')
-        idx += 1
-
-        expression = Number(num=int(tok.value))
-
-        return idx, expression
+        idx, tok = utils.match_type(tokens, idx, INT)
+        return idx, Number(num=int(tok.value))
     except:
         pass
 
-    # id
+    # <id>
     try:
-        tok = tokens[idx]
-
-        if (tok.type != token_type.IDENTIFIER):
-            raise parseError('no IDENTIFIER')
-        idx += 1
-
-        variable = Variable(id_name=tok.value)
-
-        return idx, variable
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        return idx, Variable(id_name=tok.value)
     except:
         pass
 
@@ -118,29 +82,19 @@ def parse_factor(tokens, idx):
 
 
 def parse_term(tokens, idx):
-    # term
+    # <factor> { ("*" | "/") <factor> }
     try:
-        # print(idx, tokens[idx])
         idx, factor = parse_factor(tokens, idx)
         term = Term(factor=factor)
-        # print(idx, tokens[idx])
-        # * or / factor
         while True:
             try:
-                tok = tokens[idx]
-                if tok.type != token_type.OPERATOR or \
-                        tok.value not in ['*', '/', '%']:
-                    break
-                    # raise parseError('no * or /')
-
-                idx += 1
-
+                idx, tok = utils.match_type_values(tokens, idx, OPERATOR, ['*', '/', '%'])
                 idx, factor = parse_factor(tokens, idx)
                 term = Term(factor=factor,
                             op=tok.value,
                             term=term)
             except:
-                pass
+                break
 
         return idx, term
     except:
@@ -151,29 +105,20 @@ def parse_term(tokens, idx):
 
 
 def parse_additive_expression(tokens, idx):
-    # term
+    # <additive-exp> ::= <term> { ("+" | "-") <term> }
     try:
         idx, term = parse_term(tokens, idx)
         additive_expression = AdditiveExpression(term=term)
 
-        # + or - term
         while True:
             try:
-                tok = tokens[idx]
-                if tok.type != token_type.OPERATOR or \
-                        tok.value not in ['+', '-']:
-                    break
-                    # raise parseError('no + or -')
-
-                idx += 1
-
+                idx, tok = utils.match_type_values(tokens, idx, OPERATOR, ['+', '-'])
                 idx, term = parse_term(tokens, idx)
                 additive_expression = AdditiveExpression(term=term,
                                                          op=tok.value,
                                                          expression=additive_expression)
             except:
-                pass
-
+                break
         return idx, additive_expression
     except:
         pass
@@ -183,34 +128,27 @@ def parse_additive_expression(tokens, idx):
 
 
 def parse_relational_expression(tokens, idx):
-    # > < >= <=
+    # <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
     try:
         idx, additive_expression = parse_additive_expression(tokens, idx)
         relational_expression = RelationalExpression(additive_expression=additive_expression)
-
-        # != == relational_expression
         while True:
             try:
-                tok = tokens[idx]
-                if tok.type != token_type.OPERATOR or \
-                        tok.value not in ['<', '>', '<=', '>=']:
-                    break
-                idx += 1
-
+                idx, tok = utils.match_type_values(tokens, idx, OPERATOR, ['<', '>', '<=', '>='])
                 idx, additive_expression = parse_additive_expression(tokens, idx)
                 relational_expression = RelationalExpression(additive_expression=additive_expression,
                                                              op=tok.value,
                                                              relational_expression=relational_expression)
             except:
-                pass
-
+                break
         return idx, relational_expression
     except:
         pass
+    assert False
 
 
 def parse_equality_expression(tokens, idx):
-    # != ==
+    # <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
     try:
         idx, relational_expression = parse_relational_expression(tokens, idx)
         equality_expression = EqualityExpression(relational_expression=relational_expression)
@@ -218,26 +156,22 @@ def parse_equality_expression(tokens, idx):
         # != == relational_expression
         while True:
             try:
-                tok = tokens[idx]
-                if tok.type != token_type.OPERATOR or \
-                        tok.value not in ['!=', '==']:
-                    break
-                idx += 1
-
+                idx, tok = utils.match_type_values(tokens, idx, OPERATOR, ['!=', '=='])
                 idx, relational_expression = parse_relational_expression(tokens, idx)
                 equality_expression = EqualityExpression(relational_expression=relational_expression,
                                                          op=tok.value,
                                                          equality_expression=equality_expression)
             except:
-                pass
+                break
 
         return idx, equality_expression
     except:
         pass
+    assert False
 
 
 def parse_logical_and_expression(tokens, idx):
-    # &&
+    # <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
     try:
         idx, equality_expression = parse_equality_expression(tokens, idx)
         logical_and_expression = LogicalAndExpression(equality_expression=equality_expression)
@@ -245,89 +179,50 @@ def parse_logical_and_expression(tokens, idx):
         # && equality_expression
         while True:
             try:
-                tok = tokens[idx]
-                if tok.type != token_type.OPERATOR or \
-                        tok.value != '&&':
-                    break
-                idx += 1
-
+                idx, tok = utils.match_type_values(tokens, idx, OPERATOR, ['&&'])
                 idx, equality_expression = parse_equality_expression(tokens, idx)
                 logical_and_expression = LogicalAndExpression(equality_expression=equality_expression,
                                                               op=tok.value,
                                                               logical_and_expression=logical_and_expression)
             except:
-                pass
-
+                break
         return idx, logical_and_expression
     except:
         pass
 
 
 def parse_logical_or_expression(tokens, idx):
-    """
-    <exp> ::= <id> "=" <exp> | <logical-or-exp>
-    <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
-    :param tokens:
-    :param idx:
-    :return:
-    """
-    # ||
+    # <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
     try:
         idx, logical_and_expression = parse_logical_and_expression(tokens, idx)
         expression = LogicalOrExpression(logical_and_expression=logical_and_expression)
-
-        # || logical_and_expression
         while True:
             try:
-                tok = tokens[idx]
-                if tok.type != token_type.OPERATOR or \
-                        tok.value != '||':
-                    break
-                idx += 1
-
+                idx, tok = utils.match_type_values(tokens, idx, OPERATOR, ['||'])
                 idx, logical_and_expression = parse_logical_and_expression(tokens, idx)
                 expression = LogicalOrExpression(logical_and_expression=logical_and_expression,
                                                  op=tok.value,
                                                  expression=expression)
             except:
-                pass
-
+                break
         return idx, expression
     except:
         pass
-
     # print('error: parse_logical_or_expression')
     assert False
 
 
 def parse_condition_expression(tokens, idx):
-    """
-    -<conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
-    -<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
-    :param tokens:
-    :param idx:
-    :return:
-    """
-
+    # <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
     try:
         idx, logical_or_expression = parse_logical_or_expression(tokens, idx)
         condition_expression = ConditionExpression(logical_or_expression=logical_or_expression)
 
+        old_idx = idx
         try:
-            old_idx = idx
-            tok = tokens[idx]
-            if (tok.type != token_type.OPERATOR or tok.value != '?'):
-                raise parseError('no ?')
-            idx += 1
-
+            idx, tok = utils.match(tokens, idx, OPERATOR, '?')
             idx, expression = parse_expression(tokens, idx)
-
-            tok = tokens[idx]
-            if (tok.type != token_type.OPERATOR or tok.value != ':'):
-                idx = old_idx
-                raise parseError('no :')
-            idx += 1
-
+            idx, tok = utils.match(tokens, idx, OPERATOR, ':')
             idx, condition_expression = parse_condition_expression(tokens, idx)
             condition_expression = ConditionExpression(logical_or_expression=logical_or_expression,
                                                        expression=expression,
@@ -335,126 +230,63 @@ def parse_condition_expression(tokens, idx):
             return idx, condition_expression
 
         except:
-            pass
-
+            idx = old_idx
         return idx, condition_expression
     except:
         pass
-
-    # print('error: parse_condition_expression')
     assert False
 
 
 def parse_expression(tokens, idx):
-    """
-    <exp> ::= <id> "=" <exp> | <logical-or-exp>
-    <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
-    :param tokens:
-    :param idx:
-    :return:
-    """
-    # ||
-
+    # <exp> ::= <id> "=" <exp> | <conditional-exp>
+    old_idx = idx
     try:
-        tok = tokens[idx]
-        if tok.type != token_type.IDENTIFIER:
-            raise parseError('no IDENTIFIER')
-        idx += 1
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
         f_name = tok.value
 
-        tok = tokens[idx]
-        if tok.type != token_type.OPERATOR or \
-                tok.value not in utils.assign_op:
-            idx -= 1
-            raise parseError('no =')
-        idx += 1
-
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
         idx, expression = parse_expression(tokens, idx)
-
         assignment = Assignment(id_name=f_name,
                                 expression=expression,
                                 op=tok.value)
-
         return idx, assignment
     except:
-        pass
+        idx = old_idx
 
-    # or -> ?:
+    # <conditional-exp>
     try:
-        # print(idx, tokens[idx])
         idx, expression = parse_condition_expression(tokens, idx)
         expression = Expression(logical_or_expression=expression)
-
         return idx, expression
     except:
         pass
 
-    # print('error: parse_expression')
     assert False
 
 
 def parse_declaration(tokens, idx):
-    """
-    <declaration> ::= "int" <id> [ = <exp> ] ";"
-    :param tokens:
-    :param idx:
-    :return:
-    """
-    # int xxx [= xxx];
-
+    # <declaration> ::= "int" <id> [ = <exp> ] ";"
     try:
-        tok = tokens[idx]
-        if tok.type != token_type.RESERVED or \
-                tok.value != 'int':
-            raise parseError('no int')
-        idx += 1
+        idx, tok = utils.match(tokens, idx, RESERVED, 'int')
         type_name = tok.value
-
-        tok = tokens[idx]
-        if (tok.type != token_type.IDENTIFIER):
-            raise parseError('no int')
-        idx += 1
-
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
         id_name = tok.value
 
         try:
-            tok = tokens[idx]
-            if tok.type != token_type.OPERATOR or \
-                    tok.value != '=':
-                raise parseError('no =')
-            idx += 1
-
+            idx, tok = utils.match(tokens, idx, OPERATOR, '=')
             idx, expression = parse_expression(tokens, idx)
-
-            declaration = Declaration(type_name=type_name,
-                                      id_name=id_name,
-                                      expression=expression)
-
-            tok = tokens[idx]
-            if (tok.type != token_type.OPERATOR or tok.value != ';'):
-                print('error: no ;')
-                exit()
-            idx += 1
-
-            return idx, declaration
-
+            idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+            return idx, Declaration(type_name=type_name,
+                                    id_name=id_name,
+                                    expression=expression)
         except:
             pass
 
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            print('error: no ;')
-            exit()
-        idx += 1
-
-        declaration = Declaration(type_name=type_name,
-                                  id_name=id_name)
-        return idx, declaration
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+        return idx, Declaration(type_name=type_name,
+                                id_name=id_name)
     except:
         pass
-
-    # print('error: parse_declaration')
     assert False
 
 
@@ -462,101 +294,63 @@ def parse_extended_statement(tokens, idx):
     # normal expression
     try:
         idx, expression = parse_expression(tokens, idx)
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            # print('error: no ;')
-            exit()
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
         return idx, expression
-
     except:
         pass
 
     # nop expression
     try:
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            # print('error: no ;')
-            exit()
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
         return idx, NopExpression()
     except:
         pass
-
     assert False
 
 
 def parse_statement(tokens, idx):
     """
     <statement> ::= "return" <exp> ";"
-                  | <exp> ";"
-                  | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
-
-    :param tokens:
-    :param idx:
-    :return:
+              | <exp-option> ";"
+              | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+              | "{" { <block-item> } "}
+              | "for" "(" <exp-option> ";" <exp-option> ";" <exp-option> ")" <statement>
+              | "for" "(" <declaration> <exp-option> ";" <exp-option> ")" <statement>
+              | "while" "(" <exp> ")" <statement>
+              | "do" <statement> "while" <exp> ";"
+              | "break" ";"
+              | "continue" ";"
     """
-
+    old_idx = idx
     try:
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'return'):
-            raise parseError('no return')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, RESERVED, 'return')
         idx, expression = parse_expression(tokens, idx)
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            print('error: no ;')
-            exit()
-        idx += 1
-
-        statement = Return(expression)
-        return idx, statement
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+        return idx, Return(expression)
     except:
-        pass
+        idx = old_idx
 
-    # parse_extended_statement
+    # <exp-option> ";"
+    old_idx = idx
     try:
         idx, expression = parse_extended_statement(tokens, idx)
         return idx, expression
     except:
-        pass
+        idx = old_idx
 
     # "if" "(" <exp> ")" <statement> [ "else" <statement> ]
+    old_idx = idx
     try:
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'if'):
-            raise parseError('no if')
-        idx += 1
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != '('):
-            raise parseError('no (')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, RESERVED, 'if')
+        idx, tok = utils.match(tokens, idx, OPERATOR, '(')
         idx, condition_expression = parse_expression(tokens, idx)
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ')'):
-            raise parseError('no )')
-        idx += 1
+        idx, tok = utils.match(tokens, idx, OPERATOR, ')')
 
         idx, if_statement = parse_statement(tokens, idx)
 
         try:
-
-            tok = tokens[idx]
-            if (tok.type != token_type.RESERVED or tok.value != 'else'):
-                raise parseError('no else')
-            idx += 1
-
+            idx, tok = utils.match(tokens, idx, RESERVED, 'else')
             idx, else_statement = parse_statement(tokens, idx)
-
             condition = Condition(condition_expression=condition_expression,
                                   if_statement=if_statement,
                                   else_statement=else_statement)
@@ -567,23 +361,16 @@ def parse_statement(tokens, idx):
         condition = Condition(condition_expression=condition_expression,
                               if_statement=if_statement)
         return idx, condition
-
     except:
-        pass
+        idx = old_idx
 
     #  | "{" { <block-item> } "}
     old_idx = idx
     try:
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != '{'):
-            raise parseError('no {')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, '{')
         try:
             idx, block_item = parse_block_item(tokens, idx)
             compound = Compound(block_item=block_item)
-
             while True:
                 try:
                     idx, block_item = parse_block_item(tokens, idx)
@@ -591,104 +378,57 @@ def parse_statement(tokens, idx):
                                         compound=compound)
                 except:
                     break
-
         except:
             raise parseError('no block_item')
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != '}'):
-            raise parseError('no }')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, '}')
         return idx, compound
-
     except:
         idx = old_idx
 
     # "break" ";"
     old_idx = idx
     try:
-
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'break'):
-            raise parseError('no break')
-        idx += 1
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            raise parseError('no ;')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, RESERVED, 'break')
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
         return idx, Break()
-
     except:
         idx = old_idx
 
     # "continue" ";"
     old_idx = idx
     try:
-
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'continue'):
-            raise parseError('no continue')
-        idx += 1
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            raise parseError('no ;')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, RESERVED, 'continue')
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
         return idx, Continue()
-
     except:
         idx = old_idx
 
     # "do" <statement> "while" <exp> ";"
     old_idx = idx
     try:
-
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'do'):
-            raise parseError('no do')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, RESERVED, 'do')
         statement = None
         try:
             idx, statement = parse_statement(tokens, idx)
         except:
             raise parseError('no statement')
-
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'while'):
-            raise parseError('no while')
-        idx += 1
+        idx, tok = utils.match(tokens, idx, RESERVED, 'while')
 
         expression = None
         try:
             idx, expression = parse_expression(tokens, idx)
         except:
             raise parseError('no expression')
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ';'):
-            raise parseError('no ;')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
         return idx, DoExperssion(statement=statement,
                                  expression=expression)
-
     except:
         idx = old_idx
 
     # "while" <exp>  <statement>
     old_idx = idx
     try:
-
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'while'):
-            raise parseError('no while')
-        idx += 1
-
+        idx, tok = utils.match(tokens, idx, RESERVED, 'while')
         expression = None
         try:
             idx, expression = parse_expression(tokens, idx)
@@ -700,28 +440,17 @@ def parse_statement(tokens, idx):
             idx, statement = parse_statement(tokens, idx)
         except:
             raise parseError('no statement')
-
         return idx, WhileExperssion(statement=statement,
                                     expression=expression)
-
     except:
         idx = old_idx
 
     #  "for" "(" <exp-option> ";" <exp-option> ";" <exp-option> ")" <statement>
     #  "for" "(" <declaration> ; <exp-option> ";" <exp-option> ")" <statement>
-
     old_idx = idx
     try:
-
-        tok = tokens[idx]
-        if (tok.type != token_type.RESERVED or tok.value != 'for'):
-            raise parseError('no for')
-        idx += 1
-
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != '('):
-            raise parseError('no (')
-        idx += 1
+        idx, tok = utils.match(tokens, idx, RESERVED, 'for')
+        idx, tok = utils.match(tokens, idx, OPERATOR, '(')
 
         # content
         expression1 = None
@@ -745,7 +474,6 @@ def parse_statement(tokens, idx):
             raise parseError('no expression2')
 
         expression3 = None
-
         # normal expression
         try:
             idx, expression3 = parse_expression(tokens, idx)
@@ -754,11 +482,9 @@ def parse_statement(tokens, idx):
 
             # then try nop expression
             try:
-
                 tok = tokens[idx]
                 if (tok.type != token_type.OPERATOR or tok.value != ')'):
                     exit()
-
                 expression3 = NopExpression()
             except:
                 expression3 = None
@@ -766,20 +492,14 @@ def parse_statement(tokens, idx):
         if expression3 is None:
             raise parseError('no expression3')
 
-        tok = tokens[idx]
-        if (tok.type != token_type.OPERATOR or tok.value != ')'):
-            raise parseError('no )')
-        idx += 1
+        idx, tok = utils.match(tokens, idx, OPERATOR, ')')
 
         # body
-
         statement = None
-
         try:
             idx, statement = parse_statement(tokens, idx)
         except:
             raise parseError('no block_item')
-
         return idx, ForExpression(expression1=expression1,
                                   expression2=expression2,
                                   expression3=expression3,
@@ -792,13 +512,7 @@ def parse_statement(tokens, idx):
 
 
 def parse_block_item(tokens, idx):
-    """
-    <block-item> ::= <statement> | <declaration>
-    :param tokens:
-    :param idx:
-    :return:
-    """
-
+    # <block-item> ::= <statement> | <declaration>
     try:
         idx, declaration = parse_declaration(tokens, idx)
         return idx, declaration
@@ -806,50 +520,23 @@ def parse_block_item(tokens, idx):
         pass
 
     try:
-
         idx, statement = parse_statement(tokens, idx)
-
         return idx, statement
     except:
         pass
-
-    # print('error: parse_block_item')
-    # print(idx, tokens[idx])
     assert False
 
 
 def parse_function(tokens, idx):
-    tok = tokens[idx]
-    if (tok.type != token_type.RESERVED or tok.value != 'int'):
-        print('error')
-        exit()
+    # <function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
+    idx, tok = utils.match(tokens, idx, RESERVED, 'int')
     rtype = tok.value
-    idx += 1
-
-    tok = tokens[idx]
-    if (tok.type != token_type.IDENTIFIER or tok.value != 'main'):
-        print('error')
-        exit()
+    idx, tok = utils.match(tokens, idx, IDENTIFIER, 'main')
     fname = tok.value
-    idx += 1
 
-    tok = tokens[idx]
-    if (tok.type != token_type.OPERATOR or tok.value != '('):
-        print('error')
-        exit()
-    idx += 1
-
-    tok = tokens[idx]
-    if (tok.type != token_type.OPERATOR or tok.value != ')'):
-        print('error')
-        exit()
-    idx += 1
-
-    tok = tokens[idx]
-    if (tok.type != token_type.OPERATOR or tok.value != '{'):
-        print('error')
-        exit()
-    idx += 1
+    idx, tok = utils.match(tokens, idx, OPERATOR, '(')
+    idx, tok = utils.match(tokens, idx, OPERATOR, ')')
+    idx, tok = utils.match(tokens, idx, OPERATOR, '{')
 
     # sub function
     idx, statement = parse_block_item(tokens, idx)
@@ -869,21 +556,13 @@ def parse_function(tokens, idx):
                             statement=statement,
                             function=function)
 
-    tok = tokens[idx]
-    if (tok.type != token_type.OPERATOR or tok.value != '}'):
-        print('error')
-        exit()
-
-    idx += 1
+    idx, tok = utils.match(tokens, idx, OPERATOR, '}')
     return idx, function
 
 
 def parse_program(tokens, idx):
     idx, function = parse_function(tokens, idx)
     program = Program(function)
-
-    # if idx!= len(tokens):
-    #     exit(1)
     return program
 
 
