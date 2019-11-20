@@ -70,11 +70,6 @@ class Func_Call:
         src = ""
         src += self.op_regs('pushq', utils.call_regs[:len(self.parameters)])
 
-        # 16bytes alignment
-        sLen = len(self.parameters) * 8
-        sTianChong = 16 - sLen % 16
-        if sLen % 16 != 0:
-            src += "subq ${},%rsp\n".format(sTianChong)
 
         for idx, param in enumerate(reversed(self.parameters)):
             src += param._asm()
@@ -82,12 +77,8 @@ class Func_Call:
             src += "movq %rax, {}\n".format(utils.call_regs[idx])
 
         src += "callq _{}\n".format(self.fname)
-        # TODO 带rsp再释放
 
-        if sLen % 16 != 0:
-            src += "addq ${},%rsp\n".format(sTianChong)
         src += self.op_regs('popq', utils.call_regs[:len(self.parameters)])
-
 
         return src
 
