@@ -1,6 +1,8 @@
 import utils
+import mem_table
 
 clausecounter = utils.ClauseCounter()
+mtable = mem_table.MemTable()
 
 
 class UnaryOP:
@@ -26,35 +28,17 @@ class UnaryOP:
 
         elif self.op == '++':
             id_name = self.factor.id_name
-            offset = None
-
-            if id_name in scopeVarMap:
-                offset = scopeVarMap[self.factor.id_name]
-            elif id_name in varMap:
-                offset = varMap[self.factor.id_name]
-            else:
-                print('{} is not defined'.format(id_name))
-                exit(0)
 
             src += self.factor._asm()
             src += "inc %rax\n"
-            src += "movq %rax,{}(%rbp)\n".format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(id_name))
 
         elif self.op == '--':
             id_name = self.factor.id_name
-            offset = None
-
-            if id_name in scopeVarMap:
-                offset = scopeVarMap[self.factor.id_name]
-            elif id_name in varMap:
-                offset = varMap[self.factor.id_name]
-            else:
-                print('{} is not defined'.format(id_name))
-                exit(0)
 
             src += self.factor._asm()
             src += "dec %rax\n"
-            src += "movq %rax,{}(%rbp)\n".format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(id_name))
 
         else:
             print("unknown operator")
@@ -64,6 +48,10 @@ class UnaryOP:
 
 
 class Number:
+    """
+    this class is for the instant numbers.
+    """
+
     # can handle only int now
     def __init__(self, num=0):
         self.num = int(num)
@@ -71,13 +59,6 @@ class Number:
     def _asm(self):
         src = "movq ${},%rax\n".format(self.num)
         return src
-
-
-varMap = {}
-scopeVarMap = {}
-paramMap = {}
-
-stack_index = -8
 
 
 class Func_Call:
@@ -379,59 +360,33 @@ class Compound:
         self.compound = compound
 
     def _asm(self, header=True):
-
+        # tail
         if self.compound is None:
             if not header:
                 return self.block_item._asm()
             else:
-                return self.newBlock(compound=False)
+                return self.newBlock(compound=False) +  mtable.pop()
 
+        # body
         if not header:
             src = ""
             src += self.compound._asm(header=False)
             src += self.block_item._asm()
             return src
 
-        return self.newBlock()
+        # is head block
+        src = self.newBlock()
+        src += mtable.pop()
+        return src
 
     def newBlock(self, compound=True):
         src = ""
-        # backup
-        global varMap
-        global scopeVarMap
-        global stack_index
 
-        oldVarMap = varMap
-        oldScopeVarMap = scopeVarMap
-        # print('block')
-        # merge
-        newVarMap = {}
-        for k, v in scopeVarMap.items():
-            newVarMap[k] = v
+        mtable.push(same_func=True)
 
-        for k, v in varMap.items():
-            if k not in newVarMap:  # region > global
-                newVarMap[k] = v
-
-        # change varMap
-        scopeVarMap = {}
-        varMap = newVarMap
-
-        # print(varMap)
-        # print(scopeVarMap)
-        src += '\n'
         if compound:
             src += self.compound._asm(header=False)
         src += self.block_item._asm()
-
-        # pop
-        src += "addq ${}, %rsp\n".format(len(scopeVarMap) * 8)
-        stack_index += 8 * len(scopeVarMap)
-        src += '\n'
-
-        # restore varMap
-        varMap = oldVarMap
-        scopeVarMap = oldScopeVarMap
 
         return src
 
@@ -443,133 +398,100 @@ class Assignment:
         self.op = op
 
     def _asm(self):
-        offset = 0
-        # print(varMap)
-        # print(scopeVarMap)
-        if self.id_name in scopeVarMap:
-            offset = scopeVarMap[self.id_name]
-
-        elif self.id_name in varMap:
-            offset = varMap[self.id_name]
-
-        else:
-            print('{} is not defined'.format(self.id_name))
-            exit(0)
-
         src = ""
 
         if self.op == '=':
             src += self.expression._asm()
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '+=':
             src += self.expression._asm()
-            src += "addq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "addq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '-=':
             src += self.expression._asm()
-            src += "subq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "subq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '*=':
             src += self.expression._asm()
-            src += "movq {}(%rbp),%rcx\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rcx\n".format(mtable.cite(self.id_name))
             src += "imul %rcx\n"
-
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '/=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "cdq\n"
             src += "idiv %rcx\n"
 
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '%=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "cdq\n"
             src += "idiv %rcx\n"
 
-            src += "movq %rdx,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rdx,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '<<=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "shll %cl,%eax\n"
 
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '>>=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "shrl %cl,%eax\n"
 
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '&=':  # P61
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "pop %rcx\n"
             src += "and %rcx,%rax\n"
 
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '^=':
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "pop %rcx\n"
             src += "xor %rcx,%rax\n"
 
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == '|=':
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {}(%rbp),%rax\n". \
-                format(offset)
+            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
 
             src += "pop %rcx\n"
             src += "or %rcx,%rax\n"
 
-            src += "movq %rax,{}(%rbp)\n". \
-                format(offset)
+            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
 
         elif self.op == ',':
             src += self.expression._asm()
@@ -588,28 +510,7 @@ class Declaration:
         self.expression = expression
 
     def _asm(self):
-        # print(self.id_name, self.type_name)
-        # print(varMap,scopeVarMap)
-
-        if self.id_name in scopeVarMap:
-            print('{} is already defined'.format(self.id_name))
-            exit(0)
-
-        src = ""
-
-        # default value is zero!
-        if self.expression is None:
-            src += "movq $0,%rax\n"
-        else:
-            src += self.expression._asm()
-
-        src += "push %rax\n"
-
-        global stack_index
-        scopeVarMap[self.id_name] = stack_index
-        stack_index -= 8
-
-        return src
+        return mtable.declare(self.id_name, self.type_name, self.expression)
 
 
 class Variable:
@@ -617,26 +518,7 @@ class Variable:
         self.id_name = id_name
 
     def _asm(self):
-        # print(varMap)
-        # print(scopeVarMap)
-        if self.id_name in scopeVarMap:
-            src = ""
-            src += "movq {}(%rbp),%rax\n". \
-                format(scopeVarMap[self.id_name])
-
-        elif self.id_name in varMap:
-            src = ""
-            src += "movq {}(%rbp),%rax\n". \
-                format(varMap[self.id_name])
-        elif self.id_name in paramMap:
-            src = ""
-            src += "movq {}(%rbp),%rax\n". \
-                format(paramMap[self.id_name])
-        else:
-            print('{} is not defined'.format(self.id_name))
-            exit(0)
-
-        return src
+        return mtable.use(self.id_name)
 
 
 class Return:
@@ -647,13 +529,7 @@ class Return:
         src = ""
         src += self.expression._asm()
 
-        # for _ in range(len(scopeVarMap.keys())):
-        #     src += "popq %rbp\n"
-        # print(scopeVarMap, varMap)
-
-        # src += "addq ${}, %rsp\n".format((len(scopeVarMap) + len(varMap)) * 8)
         src += "movq %rbp,%rsp\n"
-
         src += "popq %rbp\n"
         src += "ret\n"
         return src
@@ -884,11 +760,11 @@ class Function:
         if header:
             src = self._header()
 
-        # add former lines
         src += self.function._asm(header=False)
-        # add this line
-        # print(self.statement)
         src += self.statement._asm()
+
+        # if header:
+            # src += mtable.pop()
         return src
 
     def _header(self):
@@ -898,14 +774,9 @@ class Function:
         src += 'pushq %rbp\n'
         src += 'movq %rsp,%rbp\n'
 
-        # params
-        global paramMap
-        paramMap = {}
+        mtable.push()
+        mtable.declare_arguments(self.parameters)
 
-        idx = 16
-        for param in self.parameters:
-            paramMap[param[1].value] = idx
-            idx += 8
         return src
 
 
