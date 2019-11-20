@@ -68,8 +68,19 @@ class Func_Call:
 
     def _asm(self):
         src = ""
-        src += self.op_regs('pushq', utils.call_regs[:len(self.parameters)])
 
+        # 16-bytes aligned
+        src += 'movq %rsp,%rax\n'
+        src += 'subq ${},%rax\n'.format(8 *(len(self.parameters) + 1))
+
+        src += 'xorq %rdx,%rdx\n'
+        src += 'movq $16,%rcx\n'
+        src += 'idivq %rcx\n'
+
+        src += 'subq %rdx,%rsp\n'
+        src += 'pushq %rdx\n'
+
+        src += self.op_regs('pushq', utils.call_regs[:len(self.parameters)])
 
         for idx, param in enumerate(reversed(self.parameters)):
             src += param._asm()
@@ -79,6 +90,10 @@ class Func_Call:
         src += "callq _{}\n".format(self.fname)
 
         src += self.op_regs('popq', utils.call_regs[:len(self.parameters)])
+
+        # 16-bytes aligned
+        src += 'popq %rdx\n'
+        src += 'addq %rdx,%rsp\n'
 
         return src
 
