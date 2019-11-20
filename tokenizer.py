@@ -102,8 +102,11 @@ def tokenize(src):
             tokens.append(token_type.Token(src[:idx], token_type.STRING))
             src = src[idx + 1:]
 
-        elif src[0] == '\'':
-            pass
+        elif src[0] == '\'' and src[2] == '\'':
+
+            tokens.append(token_type.Token(src[1], token_type.CHAR))
+
+            src = src[3:]
 
         src = src.strip()
     return tokens

@@ -39,7 +39,7 @@ class parseError(Exception):
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <char> | <id>
 <unary_op> ::= "!" | "~" | "-"| ++ | --
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 """
@@ -104,6 +104,13 @@ def parse_factor(tokens, idx):
     try:
         idx, tok = utils.match_type(tokens, idx, INT)
         return idx, Number(num=int(tok.value))
+    except:
+        pass
+
+    # <char>
+    try:
+        idx, tok = utils.match_type(tokens, idx, CHAR)
+        return idx, Number(num=ord(tok.value))
     except:
         pass
 
