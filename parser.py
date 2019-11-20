@@ -633,6 +633,15 @@ def parse_function(tokens, idx):
                             function=function)
 
     idx, tok = utils.match(tokens, idx, OPERATOR, '}')
+
+    # add default return
+    if 'astnodes.Return' not in str(type(function.statement)):
+        function = Function(fname=fname,
+                            rtype=rtype,
+                            statement=Return(),
+                            parameters=parameters,
+                            function=function)
+
     return idx, function
 
 
@@ -647,6 +656,7 @@ def parse_program(tokens, idx):
                               program=program)
     except:
         pass
+
     return program
 
 

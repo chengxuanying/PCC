@@ -1,3 +1,5 @@
+import utils
+
 class MemTable:
     def __init__(self):
         self.outter_stack = []
@@ -43,7 +45,7 @@ class MemTable:
         :return:
         """
         # print(self.inner, self.outer)
-        src = "addq ${}, %rsp\n".format(len(self.inner) * 8)
+        src = "addq ${}, %rsp\n".format(len(self.inner) * 8) # TODO
 
         self.outer = self.outter_stack.pop()
         self.inner = self.inner_stack.pop()
@@ -53,9 +55,9 @@ class MemTable:
         return src
 
     def declare_arguments(self, params):
-        for param in params:
-            self.arg_stack_index += 8
-            self.inner[param[1].value] = self.arg_stack_index
+        for idx, param in enumerate(reversed(params)):
+            # self.arg_stack_index += 8
+            self.inner[param[1].value] = utils.call_regs[idx]
 
         # print(self.inner)
 
@@ -79,7 +81,7 @@ class MemTable:
         src += "pushq %rax\n"
 
         self.stack_index -= 8
-        self.inner[id_name] = self.stack_index
+        self.inner[id_name] = "{}(%rbp)".format(self.stack_index)
 
         # print(id_name, self.inner, self.outer)
         return src
@@ -100,12 +102,12 @@ class MemTable:
 
     def get_local_var(self, id_name):
         src = ""
-        src += "movq {}(%rbp),%rax\n".format(self.inner[id_name])
+        src += "movq {},%rax\n".format(self.inner[id_name])
         return src
 
     def get_outer_var(self, id_name):
         src = ""
-        src += "movq {}(%rbp),%rax\n".format(self.outer[id_name])
+        src += "movq {},%rax\n".format(self.outer[id_name])
         return src
 
     def cite(self, id_name):

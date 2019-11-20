@@ -46,6 +46,14 @@ assign_op = ['=',
              '+=', '-=', '*=', '/=', '%=',
              '<<=', '>>=', '&=', '|=', '^=']
 
+call_regs = [
+    '%rdi',
+    '%rsi',
+    '%rdx',
+    '%rcx',
+    '%r8d',
+    '%r9d'
+] # then comes the %rsp + blablabla
 
 def read_src(file='return_2.c'):
     with open(file) as f:

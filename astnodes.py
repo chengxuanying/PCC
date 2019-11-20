@@ -10,7 +10,7 @@ class UnaryOP:
         self.op = op
         self.factor = factor
 
-    def _asm(self, reg='eax'):
+    def _asm(self):
         src = ""
         if self.op == '-':
             src += self.factor._asm()
@@ -66,24 +66,35 @@ class Func_Call:
         self.fname = fname
         self.parameters = parameters
 
-    def _asm(self, reg='eax'):
+    def _asm(self):
         src = ""
-        # src += "movq %rsp,%rax\n"
-        # src += "subq ${}, %rax\n".format(4 * (len(self.parameters) + 1))
-        # src += "xor  %rdx,%rdx\n"
-        # src += "movq $0x20,%rcx\n"
-        # src += "idiv %rcx\n"
-        # src += "subq %rdx,%rsp\n"
-        # src += "pushq %rdx\n"
+        src += self.op_regs('pushq', utils.call_regs[:len(self.parameters)])
 
-        for param in reversed(self.parameters):
+        # 16bytes alignment
+        sLen = len(self.parameters) * 8
+        sTianChong = 16 - sLen % 16
+        if sLen % 16 != 0:
+            src += "subq ${},%rsp\n".format(sTianChong)
+
+        for idx, param in enumerate(reversed(self.parameters)):
             src += param._asm()
-            src += "pushq %rax\n"
-        src += "callq _{}\n".format(self.fname)
-        src += "addq ${}, %rsp\n".format(8 * len(self.parameters))
+            # src += "pushq %rax\n"
+            src += "movq %rax, {}\n".format(utils.call_regs[idx])
 
-        # src += "popq %rdx\n"
-        # src += "addq %rdx,%rsp\n"
+        src += "callq _{}\n".format(self.fname)
+        # TODO 带rsp再释放
+
+        if sLen % 16 != 0:
+            src += "addq ${},%rsp\n".format(sTianChong)
+        src += self.op_regs('popq', utils.call_regs[:len(self.parameters)])
+
+
+        return src
+
+    def op_regs(self, op="pushq", regs=None):
+        src = ""
+        for reg in regs:
+            src += "{} {}\n".format(op, reg)
 
         return src
 
@@ -92,7 +103,7 @@ class Factor:
     def __init__(self, expression=None):
         self.expression = expression
 
-    def _asm(self, reg='eax'):
+    def _asm(self):
         return self.expression._asm()
 
 
@@ -103,7 +114,7 @@ class Term:
         self.term = term
         self.op = op
 
-    def _asm(self, reg='eax'):
+    def _asm(self):
         if self.op is None:
             return self.factor._asm()
 
@@ -144,7 +155,7 @@ class AdditiveExpression:
         self.expression = expression
         self.op = op
 
-    def _asm(self, reg='eax'):
+    def _asm(self):
         if self.op is None:
             return self.term._asm()
 
@@ -365,7 +376,7 @@ class Compound:
             if not header:
                 return self.block_item._asm()
             else:
-                return self.newBlock(compound=False) +  mtable.pop()
+                return self.newBlock(compound=False) + mtable.pop()
 
         # body
         if not header:
@@ -402,96 +413,96 @@ class Assignment:
 
         if self.op == '=':
             src += self.expression._asm()
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '+=':
             src += self.expression._asm()
-            src += "addq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "addq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '-=':
             src += self.expression._asm()
-            src += "subq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "subq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '*=':
             src += self.expression._asm()
-            src += "movq {}(%rbp),%rcx\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rcx\n".format(mtable.cite(self.id_name))
             src += "imul %rcx\n"
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '/=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "cdq\n"
             src += "idiv %rcx\n"
 
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '%=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "cdq\n"
             src += "idiv %rcx\n"
 
-            src += "movq %rdx,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rdx,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '<<=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "shll %cl,%eax\n"
 
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '>>=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "shrl %cl,%eax\n"
 
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '&=':  # P61
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "pop %rcx\n"
             src += "and %rcx,%rax\n"
 
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '^=':
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "pop %rcx\n"
             src += "xor %rcx,%rax\n"
 
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == '|=':
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {}(%rbp),%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
 
             src += "pop %rcx\n"
             src += "or %rcx,%rax\n"
 
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
 
         elif self.op == ',':
             src += self.expression._asm()
@@ -527,7 +538,9 @@ class Return:
 
     def _asm(self):
         src = ""
-        src += self.expression._asm()
+
+        if self.expression is not None:
+            src += self.expression._asm()
 
         src += "movq %rbp,%rsp\n"
         src += "popq %rbp\n"
@@ -764,7 +777,7 @@ class Function:
         src += self.statement._asm()
 
         # if header:
-            # src += mtable.pop()
+        # src += mtable.pop()
         return src
 
     def _header(self):
