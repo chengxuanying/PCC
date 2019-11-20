@@ -71,7 +71,7 @@ class Func_Call:
 
         # 16-bytes aligned
         src += 'movq %rsp,%rax\n'
-        src += 'subq ${},%rax\n'.format(8 *(len(self.parameters) + 1))
+        src += 'subq ${},%rax\n'.format(8 * (len(self.parameters) + 1))
 
         src += 'xorq %rdx,%rdx\n'
         src += 'movq $16,%rcx\n'
@@ -795,6 +795,25 @@ class Function:
 
         mtable.push()
         mtable.declare_arguments(self.parameters)
+
+        return src
+
+
+class GlobalDeclaration:
+    def __init__(self, type_name, id_name, val='0'):
+        self.type_name = type_name
+        self.id_name = id_name
+        self.val = val
+
+    def _asm(self):
+        src = ""
+        src += ".globl _{}\n".format(self.id_name)
+        # src += ".data\n"
+        src += ".align 3\n"
+        src += "_{}:\n".format(self.id_name)
+        src += ".quad {}\n".format(self.val)
+
+        mtable.declare_global(self.id_name, self.type_name, self.val)
 
         return src
 

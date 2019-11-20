@@ -1,5 +1,6 @@
 import utils
 
+
 class MemTable:
     def __init__(self):
         self.outter_stack = []
@@ -13,7 +14,7 @@ class MemTable:
         self.arg_stack_index = 0
         self.push()
 
-    def push(self, same_func = False):
+    def push(self, same_func=False):
         """
         go into a subfunction
         :return:
@@ -45,7 +46,7 @@ class MemTable:
         :return:
         """
         # print(self.inner, self.outer)
-        src = "addq ${}, %rsp\n".format(len(self.inner) * 8) # TODO
+        src = "addq ${}, %rsp\n".format(len(self.inner) * 8)  # TODO
 
         self.outer = self.outter_stack.pop()
         self.inner = self.inner_stack.pop()
@@ -60,6 +61,13 @@ class MemTable:
             self.inner[param[1].value] = utils.call_regs[idx]
 
         # print(self.inner)
+
+    def declare_global(self, id_name, id_type, exp):
+        if id_name in self.inner:
+            print('{} is already defined'.format(id_name))
+            exit(0)
+
+        self.inner[id_name] = "_{}(%rip)".format(id_name)
 
     def declare(self, id_name, id_type, exp):
         """

@@ -16,7 +16,7 @@ class parseError(Exception):
 
 
 """
-<program> ::= <function>
+<program> ::= { <function> | <declaration> }
 <function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
 <statement> ::= "return" <exp> ";"
@@ -645,15 +645,58 @@ def parse_function(tokens, idx):
     return idx, function
 
 
+def parse_global_declaration(tokens, idx):
+    # <declaration> ::= "int" <id> [ = <exp> ] ";"
+    try:
+        idx, tok = utils.match(tokens, idx, RESERVED, 'int')
+        type_name = tok.value
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        id_name = tok.value
+
+        try:
+            idx, tok = utils.match(tokens, idx, OPERATOR, '=')
+            idx, tok = utils.match_type(tokens, idx, INT)
+            val = tok.value
+            idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+            return idx, GlobalDeclaration(type_name=type_name,
+                                          id_name=id_name,
+                                          val=val)
+        except:
+            pass
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+        return idx, Declaration(type_name=type_name,
+                                id_name=id_name)
+    except:
+        pass
+    assert False
+
+
 def parse_program(tokens, idx):
-    idx, function = parse_function(tokens, idx)
-    program = Program(function=function)
+    program = None
 
     try:
         while True:
-            idx, function = parse_function(tokens, idx)
-            program = Program(function=function,
-                              program=program)
+            ava = False
+            try:
+                idx, function = parse_function(tokens, idx)
+                program = Program(function=function,
+                                  program=program)
+                ava = True
+            except:
+                pass
+
+            try:
+                idx, declaration = parse_global_declaration(tokens, idx)
+                program = Program(function=declaration,
+                                  program=program)
+                ava = True
+            except:
+                pass
+
+            if not ava:
+                break
+
     except:
         pass
 
