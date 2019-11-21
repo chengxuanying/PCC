@@ -103,7 +103,6 @@ def tokenize(src):
             src = src[idx + 1:]
 
         elif src[0] == '\'' and src[2] == '\'':
-
             tokens.append(token_type.Token(src[1], token_type.CHAR))
 
             src = src[3:]

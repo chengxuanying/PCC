@@ -3,7 +3,8 @@ import mem_table
 
 clausecounter = utils.ClauseCounter()
 mtable = mem_table.MemTable()
-
+stable = mem_table.StringTable()
+text_asm = ""
 
 class UnaryOP:
     def __init__(self, op='~', factor=None):
@@ -31,14 +32,14 @@ class UnaryOP:
 
             src += self.factor._asm()
             src += "inc %rax\n"
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(id_name))
 
         elif self.op == '--':
             id_name = self.factor.id_name
 
             src += self.factor._asm()
             src += "dec %rax\n"
-            src += "movq %rax,{}(%rbp)\n".format(mtable.cite(id_name))
+            src += "movq %rax,{}\n".format(mtable.cite(id_name))
 
         else:
             print("unknown operator")
@@ -61,6 +62,20 @@ class Number:
         return src
 
 
+class String:
+    def __init__(self, string=""):
+        self.string = str(string)
+
+    def _asm(self):
+        # src = "movq ${},%rax\n".format(self.num)
+        # return src
+        stable.reg_string(self.string)
+        id_ = stable.query(self.string)
+        src = "leaq {}.str(%rip),%rax\n".format(id_)
+        return src
+
+
+
 class Func_Call:
     def __init__(self, fname, parameters):
         self.fname = fname
@@ -70,6 +85,10 @@ class Func_Call:
         src = ""
 
         # 16-bytes aligned
+        # src += 'pushq %rdi ## save\n'
+        # src += 'pushq %rsi ## save\n'
+        # src += 'pushq %rcx ## save\n'
+
         src += 'movq %rsp,%rax\n'
         src += 'subq ${},%rax\n'.format(8 * (len(self.parameters) + 1))
 
@@ -80,16 +99,22 @@ class Func_Call:
         src += 'subq %rdx,%rsp\n'
         src += 'pushq %rdx\n'
 
-        src += self.op_regs('pushq', utils.call_regs[:len(self.parameters)])
+        # src += 'popq %rcx ## restore\n'
+        # src += 'popq %rsi ## restore\n'
+        # src += 'popq %rdi ## restore\n'
 
-        for idx, param in enumerate(reversed(self.parameters)):
+        regs = list(utils.call_regs[:len(self.parameters)])
+        src += self.op_regs('pushq', regs)
+
+        for idx, param in enumerate(self.parameters):
             src += param._asm()
+            # src += param._asm()
             # src += "pushq %rax\n"
-            src += "movq %rax, {}\n".format(utils.call_regs[idx])
+            src += "movq %rax,{} ## push params\n".format(regs[idx])
 
         src += "callq _{}\n".format(self.fname)
 
-        src += self.op_regs('popq', utils.call_regs[:len(self.parameters)])
+        src += self.op_regs('popq', reversed(regs))
 
         # 16-bytes aligned
         src += 'popq %rdx\n'
@@ -796,6 +821,9 @@ class Function:
         mtable.push()
         mtable.declare_arguments(self.parameters)
 
+        # save params to stack
+        src += mtable.argu2stack(self.parameters)
+
         return src
 
 
@@ -826,7 +854,9 @@ class Program:
     def __str__(self):
         # print(varMap)
         # print(scopeVarMap)
-        return self._asm()
+        src = self._asm()
+        src += stable._asm()
+        return src
 
     def _asm(self):
         src = ""

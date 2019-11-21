@@ -39,7 +39,7 @@ class parseError(Exception):
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <char> | <id>
+<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <char> | <string> | <id>
 <unary_op> ::= "!" | "~" | "-"| ++ | --
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 """
@@ -48,24 +48,35 @@ class parseError(Exception):
 def parse_func_call(tokens, idx):
     # <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
     try:
+
         idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+
         fname = tok.value
         idx, tok = utils.match(tokens, idx, OPERATOR, '(')
         parameters = []
 
         try:
-            idx, exp = parse_expression(tokens, idx)
+            idx, exp = parse_condition_expression(tokens, idx)
             parameters.append(exp)
             while True:
-                idx, tok = utils.match(tokens, idx, OPERATOR, ',')
-                idx, exp = parse_expression(tokens, idx)
-                parameters.append(exp)
+                old_idx = idx
+                try:
+                    old_idx = idx
+                    idx, tok = utils.match(tokens, idx, OPERATOR, ',')
+                    # idx, exp = parse_expression(tokens, idx)
+                    idx, exp = parse_condition_expression(tokens, idx) # fix bugs, no assignment action
+                    parameters.append(exp)
+                except:
+                    idx = old_idx
+                    break
         except:
             pass
 
         # print(parameters[0])
 
         idx, tok = utils.match(tokens, idx, OPERATOR, ')')
+        # print(parameters)
+        # print(fname, tok)
         return idx, Func_Call(fname=fname,
                               parameters=parameters)
     except:
@@ -111,6 +122,13 @@ def parse_factor(tokens, idx):
     try:
         idx, tok = utils.match_type(tokens, idx, CHAR)
         return idx, Number(num=ord(tok.value))
+    except:
+        pass
+
+    # <string>
+    try:
+        idx, tok = utils.match_type(tokens, idx, STRING)
+        return idx, String(string=tok.value)
     except:
         pass
 

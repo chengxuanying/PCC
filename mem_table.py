@@ -56,11 +56,12 @@ class MemTable:
         return src
 
     def declare_arguments(self, params):
-        for idx, param in enumerate(reversed(params)):
+        regs = list(utils.call_regs[:len(params)])
+        for idx, param in enumerate(params):
             # self.arg_stack_index += 8
-            self.inner[param[1].value] = utils.call_regs[idx]
+            self.inner[param[1].value] = regs[idx]
 
-        # print(self.inner)
+        print(self.inner)
 
     def declare_global(self, id_name, id_type, exp):
         if id_name in self.inner:
@@ -68,6 +69,17 @@ class MemTable:
             exit(0)
 
         self.inner[id_name] = "_{}(%rip)".format(id_name)
+
+    def argu2stack(self, params):
+        src = ""
+        regs = list(utils.call_regs[:len(params)])
+        for idx, param in enumerate(params):
+            id_name = param[1].value
+            src += "pushq {} ##push arg to stack\n".format(regs[idx])
+            self.stack_index -= 8
+            self.inner[id_name] = "{}(%rbp)".format(self.stack_index)
+        return src
+        print(self.inner)
 
     def declare(self, id_name, id_type, exp):
         """
@@ -123,3 +135,28 @@ class MemTable:
             return self.inner[id_name]
         elif id_name in self.outer:
             return self.outer[id_name]
+
+
+class StringTable:
+    def __init__(self):
+        self.string2id = {}
+        self.asm = ""
+
+    def reg_string(self, string):
+        if string not in self.string2id:
+            _id = "L{}_".format(len(self.string2id.keys()))
+            self.asm += "{}.str:\n".format(_id)
+            self.asm += '.asciz	"{}"\n'.format(str(string))
+
+            self.string2id[str(string)] = _id
+
+    def query(self, string):
+        """
+        return the _id name
+        :param string:
+        :return:
+        """
+        return self.string2id[str(string)]
+
+    def _asm(self):
+        return self.asm

@@ -51,8 +51,8 @@ call_regs = [
     '%rsi',
     '%rdx',
     '%rcx',
-    '%r8d',
-    '%r9d'
+    '%r8',
+    '%r9'
 ] # then comes the %rsp + blablabla
 
 def read_src(file='return_2.c'):
