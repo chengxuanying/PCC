@@ -14,6 +14,8 @@ class MemTable:
         self.arg_stack_index = 0
         self.push()
 
+        self.glo = []
+
     def push(self, same_func=False):
         """
         go into a subfunction
@@ -61,14 +63,15 @@ class MemTable:
             # self.arg_stack_index += 8
             self.inner[param[1].value] = regs[idx]
 
-        print(self.inner)
+        # print(self.inner)
 
-    def declare_global(self, id_name, id_type, exp):
+    def declare_global(self, id_name, id_type, val):
         if id_name in self.inner:
             print('{} is already defined'.format(id_name))
             exit(0)
 
         self.inner[id_name] = "_{}(%rip)".format(id_name)
+        self.glo.append([id_name, id_type, val])
 
     def argu2stack(self, params):
         src = ""
@@ -79,7 +82,7 @@ class MemTable:
             self.stack_index -= 8
             self.inner[id_name] = "{}(%rbp)".format(self.stack_index)
         return src
-        print(self.inner)
+        # print(self.inner)
 
     def declare(self, id_name, id_type, exp):
         """
@@ -135,6 +138,21 @@ class MemTable:
             return self.inner[id_name]
         elif id_name in self.outer:
             return self.outer[id_name]
+
+    def _asm(self):
+        src = ""
+        for id_name, id_type, val in self.glo:
+            src += "\n"
+
+            # print(id_name, id_type, val)
+            src = ".section __DATA,__data\n"
+            src += ".globl _{}\n".format(id_name)
+            # src += ".data\n"
+            src += ".align 3\n"
+            src += "_{}:\n".format(id_name)
+            src += ".quad {}\n".format(val)
+
+        return src
 
 
 class StringTable:

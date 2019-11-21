@@ -834,16 +834,16 @@ class GlobalDeclaration:
         self.val = val
 
     def _asm(self):
-        src = ""
-        src += ".globl _{}\n".format(self.id_name)
-        # src += ".data\n"
-        src += ".align 3\n"
-        src += "_{}:\n".format(self.id_name)
-        src += ".quad {}\n".format(self.val)
+        # src = ".section __DATA,__data\n"
+        # src += ".globl _{}\n".format(self.id_name)
+        # # src += ".data\n"
+        # src += ".align 3\n"
+        # src += "_{}:\n".format(self.id_name)
+        # src += ".quad {}\n".format(self.val)
 
         mtable.declare_global(self.id_name, self.type_name, self.val)
 
-        return src
+        return ""
 
 
 class Program:
@@ -856,6 +856,7 @@ class Program:
         # print(scopeVarMap)
         src = self._asm()
         src += stable._asm()
+        src += mtable._asm()
         return src
 
     def _asm(self):
