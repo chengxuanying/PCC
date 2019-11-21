@@ -178,7 +178,7 @@ class MemTable:
         src += "movq {},%rax\n".format(self.outer[id_name])
         return src
 
-    def cite_array(self, id_name, index_expression):
+    def assign_array(self, id_name, index_expression):
         src = self.cal_index(index_expression)
 
         off = None

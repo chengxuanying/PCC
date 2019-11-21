@@ -573,8 +573,94 @@ class ArrayAssignment:
 
         if self.op == '=':
             src += self.expression._asm()
-            src += mtable.cite_array(self.id_name, self.index_expression)
+            src += mtable.assign_array(self.id_name, self.index_expression)
 
+        elif self.op == '+=':
+            src += self.expression._asm()
+            src += 'pushq %rax\n'
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += 'popq %rbx\n'
+            src += "addq %rbx,%rax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '-=':
+            src += self.expression._asm()
+            src += 'pushq %rax\n'
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += 'popq %rbx\n'
+            src += "subq %rbx,%rax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '*=':
+            src += self.expression._asm()
+            src += 'pushq %rax\n'
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += 'movq %rax,%rcx\n'
+            src += 'popq %rax\n'
+            src += "imul %rcx\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '/=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += "cdq\n"
+            src += "idiv %rcx\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '%=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += "cdq\n"
+            src += "idiv %rcx\n"
+            src += "movq %rdx,%rax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '<<=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += "shll %cl,%eax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '>>=':
+            src += self.expression._asm()
+            src += "movq %rax,%rcx\n"
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += "shrl %cl,%eax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '&=':  # P61
+            src += self.expression._asm()
+            src += 'pushq %rax\n'
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += 'popq %rbx\n'
+            src += "and %rbx,%rax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '^=':
+            src += self.expression._asm()
+            src += 'pushq %rax\n'
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += 'popq %rbx\n'
+            src += "xor %rbx,%rax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == '|=':
+            src += self.expression._asm()
+            src += 'pushq %rax\n'
+            src += mtable.use_array(self.id_name, self.index_expression)
+            src += 'popq %rbx\n'
+            src += "or %rbx,%rax\n"
+            src += mtable.assign_array(self.id_name, self.index_expression)
+
+        elif self.op == ',':
+            src += self.expression._asm()
+
+        else:
+            print("unknown operator")
+            exit(0)
         return src
 
 
@@ -876,15 +962,7 @@ class GlobalDeclaration:
         self.val = val
 
     def _asm(self):
-        # src = ".section __DATA,__data\n"
-        # src += ".globl _{}\n".format(self.id_name)
-        # # src += ".data\n"
-        # src += ".align 3\n"
-        # src += "_{}:\n".format(self.id_name)
-        # src += ".quad {}\n".format(self.val)
-
         mtable.declare_global(self.id_name, self.type_name, self.val)
-
         return ""
 
 
@@ -894,8 +972,6 @@ class Program:
         self.program = program
 
     def __str__(self):
-        # print(varMap)
-        # print(scopeVarMap)
         src = self._asm()
         src += stable._asm()
         src += mtable._asm()
