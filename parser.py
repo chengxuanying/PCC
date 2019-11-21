@@ -30,8 +30,10 @@ class parseError(Exception):
               | "break" ";"
               | "continue" ";"
 <exp-option> ::= <exp> | ""
-<declaration> ::= "int" <id> [ = <exp> ] ";"
-<exp> ::= <id> "=" <exp> | <conditional-exp>
+<declaration> ::= "int" <id> [ = <exp> ] ";"  |  "int" <id> "[" <exp> "]"            #new
+<exp> ::= <id> "=" <exp> 
+        ｜ <id> "[" <exp> "]" "=" <exp>  #new
+        | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -39,7 +41,9 @@ class parseError(Exception):
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <char> | <string> | <id>
+<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> 
+            | <int> | <char> | <string> 
+            | <id> "[" <exp> "]" | <id>                                             #new
 <unary_op> ::= "!" | "~" | "-"| ++ | --
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 """
@@ -64,7 +68,7 @@ def parse_func_call(tokens, idx):
                     old_idx = idx
                     idx, tok = utils.match(tokens, idx, OPERATOR, ',')
                     # idx, exp = parse_expression(tokens, idx)
-                    idx, exp = parse_condition_expression(tokens, idx) # fix bugs, no assignment action
+                    idx, exp = parse_condition_expression(tokens, idx)  # fix bugs, no assignment action
                     parameters.append(exp)
                 except:
                     idx = old_idx
@@ -131,6 +135,22 @@ def parse_factor(tokens, idx):
         return idx, String(string=tok.value)
     except:
         pass
+
+    # <id> "[" <exp> "]"
+    old_idx = idx
+    try:
+
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        id_name = tok.value
+        idx, tok = utils.match(tokens, idx, OPERATOR, '[')
+
+        idx, index_expression = parse_expression(tokens, idx)
+        idx, tok = utils.match(tokens, idx, OPERATOR, ']')
+
+        return idx, ArrayVariable(id_name=id_name,
+                                  index_expression=index_expression)
+    except:
+        idx = old_idx
 
     # <id>
     try:
@@ -300,7 +320,7 @@ def parse_condition_expression(tokens, idx):
 
 
 def parse_expression(tokens, idx):
-    # <exp> ::= <id> "=" <exp> | <conditional-exp>
+    # <exp> ::= <id> "=" <exp>
     old_idx = idx
     try:
         idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
@@ -311,6 +331,26 @@ def parse_expression(tokens, idx):
         assignment = Assignment(id_name=f_name,
                                 expression=expression,
                                 op=tok.value)
+        return idx, assignment
+    except:
+        idx = old_idx
+
+    # <id> "[" <exp> "]" "=" <exp>
+    old_idx = idx
+    try:
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        f_name = tok.value
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, '[')
+        idx, index_expression = parse_expression(tokens, idx)
+        idx, tok = utils.match(tokens, idx, OPERATOR, ']')
+
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
+        idx, expression = parse_expression(tokens, idx)
+        assignment = ArrayAssignment(id_name=f_name,
+                                     expression=expression,
+                                     op=tok.value,
+                                     index_expression=index_expression)
         return idx, assignment
     except:
         idx = old_idx
@@ -328,6 +368,7 @@ def parse_expression(tokens, idx):
 
 def parse_declaration(tokens, idx):
     # <declaration> ::= "int" <id> [ = <exp> ] ";"
+    old_idx = idx
     try:
         idx, tok = utils.match(tokens, idx, RESERVED, 'int')
         type_name = tok.value
@@ -348,7 +389,28 @@ def parse_declaration(tokens, idx):
         return idx, Declaration(type_name=type_name,
                                 id_name=id_name)
     except:
-        pass
+        idx = old_idx
+
+    # "int" <id> "[" <exp> "]"
+    old_idx = idx
+    try:
+        idx, tok = utils.match(tokens, idx, RESERVED, 'int')
+        type_name = tok.value
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        id_name = tok.value
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, '[')
+        # idx, index_expression = parse_expression(tokens, idx)
+        idx, tok = utils.match_type(tokens, idx, INT)
+        index_expression = Number(num=int(tok.value))
+        idx, tok = utils.match(tokens, idx, OPERATOR, ']')
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+        return idx, ArrayDeclaration(type_name=type_name,
+                                     id_name=id_name,
+                                     index_expression=index_expression)
+    except:
+        idx = old_idx
     assert False
 
 

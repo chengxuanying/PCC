@@ -109,6 +109,24 @@ class MemTable:
         # print(id_name, self.inner, self.outer)
         return src
 
+    def declare_array(self, id_name, id_type, index_exp, exp=None):
+        """
+        declare a id array in this layer
+        :return:
+        """
+
+        if id_name in self.inner:
+            print('{} is already defined'.format(id_name))
+            exit(0)
+
+        src = ""
+
+        src += "subq ${},%rsp\n".format(8 * index_exp.num)
+        self.stack_index -= 8 * index_exp.num
+        self.inner[id_name] = "{}".format(self.stack_index)
+
+        return src
+
     def use(self, id_name):
         """
         return the _asm of the id
@@ -123,6 +141,33 @@ class MemTable:
         print('{} is not defined'.format(id_name))
         exit(0)
 
+    def use_array(self, id_name, index_expression):
+        """
+        return the _asm of the id
+        :return:
+        """
+        src = ""
+
+        if id_name in self.inner:
+            src += self.get_local_arr_var(id_name, index_expression)
+        elif id_name in self.outer:
+            src += self.get_outer_arr_var(id_name, index_expression)
+        else:
+            print('{} is not defined'.format(id_name))
+            exit(0)
+
+        return src
+
+    def get_outer_arr_var(self, id_name, index_expression):
+        src = self.cal_index(index_expression)
+        src += "movq {}(%rbp,%r11,8),%rax\n".format(self.outer[id_name])
+        return src
+
+    def get_local_arr_var(self, id_name, index_expression):
+        src = self.cal_index(index_expression)
+        src += "movq {}(%rbp,%r11,8),%rax\n".format(self.inner[id_name])
+        return src
+
     def get_local_var(self, id_name):
         src = ""
         src += "movq {},%rax\n".format(self.inner[id_name])
@@ -131,6 +176,25 @@ class MemTable:
     def get_outer_var(self, id_name):
         src = ""
         src += "movq {},%rax\n".format(self.outer[id_name])
+        return src
+
+    def cite_array(self, id_name, index_expression):
+        src = self.cal_index(index_expression)
+
+        off = None
+        if id_name in self.inner:
+            off = self.inner[id_name]
+        elif id_name in self.outer:
+            off = self.outer[id_name]
+
+        src += "movq %rax,{}(%rbp,%r11,8)\n".format(off)
+        return src
+
+    def cal_index(self, index_expression):
+        src = "pushq %rax\n"
+        src += index_expression._asm()
+        src += "movq %rax,%r11\n"
+        src += "popq %rax\n"
         return src
 
     def cite(self, id_name):

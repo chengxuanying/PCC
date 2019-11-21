@@ -6,6 +6,7 @@ mtable = mem_table.MemTable()
 stable = mem_table.StringTable()
 text_asm = ""
 
+
 class UnaryOP:
     def __init__(self, op='~', factor=None):
         self.op = op
@@ -73,7 +74,6 @@ class String:
         id_ = stable.query(self.string)
         src = "leaq {}.str(%rip),%rax\n".format(id_)
         return src
-
 
 
 class Func_Call:
@@ -440,100 +440,103 @@ class Assignment:
         self.op = op
 
     def _asm(self):
+        return self._op(mtable.cite(self.id_name))
+
+    def _op(self, reg):
         src = ""
 
         if self.op == '=':
             src += self.expression._asm()
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '+=':
             src += self.expression._asm()
-            src += "addq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "addq %rax,{}\n".format(reg)
 
         elif self.op == '-=':
             src += self.expression._asm()
-            src += "subq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "subq %rax,{}\n".format(reg)
 
         elif self.op == '*=':
             src += self.expression._asm()
-            src += "movq {},%rcx\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rcx\n".format(reg)
             src += "imul %rcx\n"
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '/=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "cdq\n"
             src += "idiv %rcx\n"
 
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '%=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "cdq\n"
             src += "idiv %rcx\n"
 
-            src += "movq %rdx,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rdx,{}\n".format(reg)
 
         elif self.op == '<<=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "shll %cl,%eax\n"
 
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '>>=':
             src += self.expression._asm()
             src += "movq %rax,%rcx\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "shrl %cl,%eax\n"
 
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '&=':  # P61
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "pop %rcx\n"
             src += "and %rcx,%rax\n"
 
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '^=':
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "pop %rcx\n"
             src += "xor %rcx,%rax\n"
 
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == '|=':
             src += self.expression._asm()
             src += "push %rax\n"
 
-            src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+            src += "movq {},%rax\n".format(reg)
 
             src += "pop %rcx\n"
             src += "or %rcx,%rax\n"
 
-            src += "movq %rax,{}\n".format(mtable.cite(self.id_name))
+            src += "movq %rax,{}\n".format(reg)
 
         elif self.op == ',':
             src += self.expression._asm()
@@ -555,12 +558,51 @@ class Declaration:
         return mtable.declare(self.id_name, self.type_name, self.expression)
 
 
+class ArrayAssignment:
+    def __init__(self, id_name, expression, op, index_expression):
+        self.id_name = id_name
+        self.expression = expression
+        self.op = op
+        self.index_expression = index_expression
+        self.ass = Assignment(id_name=self.id_name,
+                              expression=self.expression,
+                              op=self.op)
+
+    def _asm(self):
+        src = ""
+
+        if self.op == '=':
+            src += self.expression._asm()
+            src += mtable.cite_array(self.id_name, self.index_expression)
+
+        return src
+
+
+class ArrayDeclaration:
+    def __init__(self, type_name, id_name, index_expression):
+        self.type_name = type_name
+        self.id_name = id_name
+        self.index_expression = index_expression
+
+    def _asm(self):
+        return mtable.declare_array(self.id_name, self.type_name, self.index_expression, None)
+
+
 class Variable:
     def __init__(self, id_name):
         self.id_name = id_name
 
     def _asm(self):
         return mtable.use(self.id_name)
+
+
+class ArrayVariable:
+    def __init__(self, id_name, index_expression):
+        self.id_name = id_name
+        self.index_expression = index_expression
+
+    def _asm(self):
+        return mtable.use_array(self.id_name, self.index_expression)
 
 
 class Return:

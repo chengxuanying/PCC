@@ -1,3 +1,5 @@
+import utils
+
 def generate(ast, fname):
     f = open(fname, mode='w+')
 
@@ -9,13 +11,8 @@ def generate(ast, fname):
             src.append('\t' + line)
     src = '\n'.join(src)
 
+    f.write(utils.header)
     f.write(src)
-    # f.write('.globl _{}\n'.format(ast.function.fname))
-    # f.write('_{}:\n'.format(ast.function.fname))
-    # f.write('movl ${}, %eax\n'.format(ast.function.statement.expression.value))
-    # f.write('ret\n')
-
-    # print(src)
     f.close()
 
     import os
