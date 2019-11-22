@@ -30,11 +30,12 @@ class parseError(Exception):
               | "break" ";"
               | "continue" ";"
 <exp-option> ::= <exp> | ""
-<declaration> ::= "int" <id> [ = <exp> ] ";"  |  "int" <id> "[" <exp> "]"            #new
+<declaration> ::= "int" <single_declaration> {',' <single_declaration>} ";"
+<single_declaration> ::= <id> "[" <exp>(a num) "]" | <id> [ '=' <exp> ]  
 <exp> ::= <sub_exp> {"," <sub_exp>}  # new
-<sub_exp > ::= <id> "=" <exp> 
-        ｜ <id> "[" <exp> "]" "=" <exp>  #new
-        | <conditional-exp>
+<sub_exp > ::= <id> <assign_op> <exp> 
+            ｜ <id> "[" <exp> "]" <assign_op> <exp>  #new
+             | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -46,8 +47,11 @@ class parseError(Exception):
             | <unary_op> <vars> | <vars> <post_unary_op> | <vars> #new
             | <int> | <char> | <string>                                           #new
 <vars> ::= <id> "[" <exp> "]" | <id>
-<unary_op> ::= "!" | "~" | "-"| ++ | --
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
+
+<unary_op> ::= "!" | "~" | "-"| ++ | --
+<post_unary_op> ::= ++ | --
+<assign_op> ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '<<=' | '>>=' | '&=' | '^=' | '|='
 """
 
 
@@ -119,7 +123,6 @@ def parse_vars(tokens, idx):
 
 
 def parse_factor(tokens, idx):
-
     # <function-call>
     try:
         idx, expression = parse_func_call(tokens, idx)
@@ -422,50 +425,75 @@ def parse_subexpression(tokens, idx):
 
 
 def parse_declaration(tokens, idx):
-    # <declaration> ::= "int" <id> [ = <exp> ] ";"
+    # <declaration> ::= "int" <single_declaration> {',' <single_declaration>} ";"
     old_idx = idx
     try:
         idx, tok = utils.match(tokens, idx, RESERVED, 'int')
         type_name = tok.value
+
+        idx, single_declaration = parse_single_declaration(tokens, idx)
+        declaration = Declaration(type_name=type_name,
+                                  single_declaration=single_declaration,
+                                  declaration=None)
+        old_idx = idx
+        while True:
+            old_idx = idx
+            try:
+                old_idx = idx
+                idx, tok = utils.match(tokens, idx, OPERATOR, ',')
+                idx, single_declaration = parse_single_declaration(tokens, idx)
+                declaration = Declaration(type_name=type_name,
+                                          single_declaration=single_declaration,
+                                          declaration=declaration)
+            except:
+                idx = old_idx
+                break
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
+
+        return idx, declaration
+    except:
+        idx = old_idx
+
+    assert False
+
+
+def parse_single_declaration(tokens, idx):
+    # <single_declaration> ::= <id> "[" <exp>(a num) "]" | <id> [ '=' <exp> ]
+    old_idx = idx
+    try:
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        id_name = tok.value
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, '[')
+        idx, tok = utils.match_type(tokens, idx, INT)
+        index_expression = Number(num=int(tok.value))
+        idx, tok = utils.match(tokens, idx, OPERATOR, ']')
+
+        return idx, SingleArrayDeclaration(id_name=id_name,
+                                           index_expression=index_expression)
+    except:
+        idx = old_idx
+
+    old_idx = idx
+    try:
         idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
         id_name = tok.value
 
         try:
             idx, tok = utils.match(tokens, idx, OPERATOR, '=')
-            idx, expression = parse_expression(tokens, idx)
-            idx, tok = utils.match(tokens, idx, OPERATOR, ';')
-            return idx, Declaration(type_name=type_name,
-                                    id_name=id_name,
-                                    expression=expression)
+            idx, expression = parse_subexpression(tokens, idx)
+            return idx, SingleDeclaration(id_name=id_name,
+                                          expression=expression)
         except:
             pass
 
-        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
-        return idx, Declaration(type_name=type_name,
-                                id_name=id_name)
+        return idx, SingleDeclaration(id_name=id_name,
+                                      expression=None)
     except:
         idx = old_idx
 
-    # "int" <id> "[" <exp> "]"
-    old_idx = idx
-    try:
-        idx, tok = utils.match(tokens, idx, RESERVED, 'int')
-        type_name = tok.value
-        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
-        id_name = tok.value
 
-        idx, tok = utils.match(tokens, idx, OPERATOR, '[')
-        # idx, index_expression = parse_expression(tokens, idx)
-        idx, tok = utils.match_type(tokens, idx, INT)
-        index_expression = Number(num=int(tok.value))
-        idx, tok = utils.match(tokens, idx, OPERATOR, ']')
-
-        idx, tok = utils.match(tokens, idx, OPERATOR, ';')
-        return idx, ArrayDeclaration(type_name=type_name,
-                                     id_name=id_name,
-                                     index_expression=index_expression)
-    except:
-        idx = old_idx
     assert False
 
 

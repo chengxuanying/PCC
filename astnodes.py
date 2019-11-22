@@ -48,6 +48,7 @@ class UnaryOP:
 
         return src
 
+
 class PostUnaryOP:
     def __init__(self, op='~', factor=None):
         self.op = op
@@ -72,6 +73,7 @@ class PostUnaryOP:
             exit(0)
 
         return src
+
 
 class Number:
     """
@@ -570,13 +572,36 @@ class Assignment:
 
 
 class Declaration:
-    def __init__(self, type_name, id_name, expression=None):
+    def __init__(self, type_name, single_declaration, declaration=None):
         self.type_name = type_name
+        self.single_declaration = single_declaration
+        self.declaration = declaration
+
+    def _asm(self):
+        if self.declaration is None:
+            return self.single_declaration._asm(self.type_name)
+
+        src = self.declaration._asm()
+        src += self.single_declaration._asm(self.type_name)
+        return src
+
+
+class SingleDeclaration:
+    def __init__(self, id_name, expression=None):
         self.id_name = id_name
         self.expression = expression
 
-    def _asm(self):
-        return mtable.declare(self.id_name, self.type_name, self.expression)
+    def _asm(self, type_name):
+        return mtable.declare(self.id_name, type_name, self.expression)
+
+
+class SingleArrayDeclaration:
+    def __init__(self, id_name, index_expression):
+        self.id_name = id_name
+        self.index_expression = index_expression
+
+    def _asm(self, type_name):
+        return mtable.declare_array(self.id_name, type_name, self.index_expression, None)
 
 
 class ArrayAssignment:
@@ -682,17 +707,8 @@ class ArrayAssignment:
         return src
 
 
-class ArrayDeclaration:
-    def __init__(self, type_name, id_name, index_expression):
-        self.type_name = type_name
-        self.id_name = id_name
-        self.index_expression = index_expression
-
-    def _asm(self):
-        return mtable.declare_array(self.id_name, self.type_name, self.index_expression, None)
-
 class CommaExpression:
-    def __init__(self, expression, commaexpression = None):
+    def __init__(self, expression, commaexpression=None):
         self.expression = expression
         self.commaexpression = commaexpression
 
@@ -703,6 +719,7 @@ class CommaExpression:
         src = self.commaexpression._asm()
         src += self.expression._asm()
         return src
+
 
 class Variable:
     def __init__(self, id_name):
