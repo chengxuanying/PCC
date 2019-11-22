@@ -42,9 +42,10 @@ class parseError(Exception):
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> 
-            | <int> | <char> | <string> 
-            | <id> "[" <exp> "]" | <id>                                             #new
+<factor> ::= <function-call> | "(" <exp> ")" 
+            | <unary_op> <vars> | <vars> <post_unary_op> | <vars> #new
+            | <int> | <char> | <string>                                           #new
+<vars> ::= <id> "[" <exp> "]" | <id>
 <unary_op> ::= "!" | "~" | "-"| ++ | --
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 """
@@ -90,53 +91,7 @@ def parse_func_call(tokens, idx):
     assert False
 
 
-def parse_factor(tokens, idx):
-    # <function-call>
-    try:
-        idx, expression = parse_func_call(tokens, idx)
-        return idx, Factor(expression=expression)
-    except:
-        pass
-
-    # "(" <exp> ")"
-    try:
-        idx, tok = utils.match(tokens, idx, OPERATOR, '(')
-        idx, expression = parse_expression(tokens, idx)
-        idx, tok = utils.match(tokens, idx, OPERATOR, ')')
-        return idx, Factor(expression=expression)
-    except:
-        pass
-
-    # <unary_op> <factor>
-    try:
-        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.unary_op)
-        idx, factor = parse_factor(tokens, idx)
-        return idx, UnaryOP(op=tok.value,
-                            factor=factor)
-    except:
-        pass
-
-    # <int>
-    try:
-        idx, tok = utils.match_type(tokens, idx, INT)
-        return idx, Number(num=int(tok.value))
-    except:
-        pass
-
-    # <char>
-    try:
-        idx, tok = utils.match_type(tokens, idx, CHAR)
-        return idx, Number(num=ord(tok.value))
-    except:
-        pass
-
-    # <string>
-    try:
-        idx, tok = utils.match_type(tokens, idx, STRING)
-        return idx, String(string=tok.value)
-    except:
-        pass
-
+def parse_vars(tokens, idx):
     # <id> "[" <exp> "]"
     old_idx = idx
     try:
@@ -157,6 +112,76 @@ def parse_factor(tokens, idx):
     try:
         idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
         return idx, Variable(id_name=tok.value)
+    except:
+        pass
+
+    assert False
+
+
+def parse_factor(tokens, idx):
+
+    # <function-call>
+    try:
+        idx, expression = parse_func_call(tokens, idx)
+        return idx, Factor(expression=expression)
+    except:
+        pass
+
+    # "(" <exp> ")"
+    old_idx = idx
+    try:
+        idx, tok = utils.match(tokens, idx, OPERATOR, '(')
+        idx, expression = parse_expression(tokens, idx)
+        idx, tok = utils.match(tokens, idx, OPERATOR, ')')
+        return idx, Factor(expression=expression)
+    except:
+        idx = old_idx
+
+    # <unary_op> <var>
+    old_idx = idx
+    try:
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.unary_op)
+        idx, var = parse_vars(tokens, idx)
+        return idx, UnaryOP(op=tok.value,
+                            factor=var)
+    except:
+        idx = old_idx
+
+    # <var> <unary_op>
+    old_idx = idx
+    try:
+        idx, var = parse_vars(tokens, idx)
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.post_unary_op)
+        return idx, PostUnaryOP(op=tok.value,
+                                factor=var)
+    except:
+        idx = old_idx
+
+    # <var>
+    try:
+        idx, var = parse_vars(tokens, idx)
+        return idx, var
+    except:
+        idx = old_idx
+
+    # <int>
+    try:
+        idx, tok = utils.match_type(tokens, idx, INT)
+        return idx, Number(num=int(tok.value))
+    except:
+        pass
+
+    # <char>
+    try:
+        idx, tok = utils.match_type(tokens, idx, CHAR)
+        return idx, Number(num=ord(tok.value))
+    except:
+        pass
+
+    # <string>
+    try:
+        idx, tok = utils.match_type(tokens, idx, STRING)
+        return idx, String(string=tok.value)
     except:
         pass
 
@@ -319,12 +344,13 @@ def parse_condition_expression(tokens, idx):
         pass
     assert False
 
+
 def parse_expression(tokens, idx):
     # <exp> ::= <sub_exp> "," <exp>  # new
     old_idx = idx
     try:
         idx, sub_expression = parse_subexpression(tokens, idx)
-        comma_expression = CommaExpression(expression = sub_expression,
+        comma_expression = CommaExpression(expression=sub_expression,
                                            commaexpression=None)
 
         while True:
@@ -337,12 +363,12 @@ def parse_expression(tokens, idx):
             except:
                 break
 
-
         return idx, comma_expression
     except:
         idx = old_idx
 
     assert False
+
 
 def parse_subexpression(tokens, idx):
     # <exp> ::= <id> "=" <exp>
@@ -352,7 +378,7 @@ def parse_subexpression(tokens, idx):
         f_name = tok.value
 
         idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
-        idx, expression = parse_subexpression(tokens, idx) #b=1,a
+        idx, expression = parse_subexpression(tokens, idx)  # b=1,a
         assignment = Assignment(id_name=f_name,
                                 expression=expression,
                                 op=tok.value)
@@ -363,14 +389,18 @@ def parse_subexpression(tokens, idx):
     # <id> "[" <exp> "]" "=" <exp>
     old_idx = idx
     try:
+
         idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
         f_name = tok.value
 
         idx, tok = utils.match(tokens, idx, OPERATOR, '[')
+
         idx, index_expression = parse_expression(tokens, idx)
+
         idx, tok = utils.match(tokens, idx, OPERATOR, ']')
 
         idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
+
         idx, expression = parse_subexpression(tokens, idx)
         assignment = ArrayAssignment(id_name=f_name,
                                      expression=expression,

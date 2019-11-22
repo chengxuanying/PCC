@@ -45,6 +45,8 @@ reserved_ids = ["bool", "char", "short", "int", "long", "void",
 unary_op = ['!', '~', '-',
             '++', '--']
 
+post_unary_op = [ '++', '--']
+
 assign_op = ['=',
              '+=', '-=', '*=', '/=', '%=',
              '<<=', '>>=', '&=', '|=', '^=']

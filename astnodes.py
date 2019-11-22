@@ -48,6 +48,30 @@ class UnaryOP:
 
         return src
 
+class PostUnaryOP:
+    def __init__(self, op='~', factor=None):
+        self.op = op
+        self.factor = factor
+
+    def _asm(self):
+        src = ""
+
+        if self.op == '++':
+            id_name = self.factor.id_name
+            src += self.factor._asm()
+            src += "incq {}\n".format(mtable.cite(id_name))
+
+        elif self.op == '--':
+            id_name = self.factor.id_name
+
+            src += self.factor._asm()
+            src += "decq {}\n".format(mtable.cite(id_name))
+
+        else:
+            print("unknown operator")
+            exit(0)
+
+        return src
 
 class Number:
     """
