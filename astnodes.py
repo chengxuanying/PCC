@@ -772,9 +772,9 @@ class ForExpression:
         self.statement = statement
 
     def _asm(self):
-        start_clause = clausecounter.next()
-        end_clause = clausecounter.next()
-        add_clause = clausecounter.next()
+        start_clause = clausecounter.next() + "_start_clause"
+        end_clause = clausecounter.next() + "_end_clause"
+        add_clause = clausecounter.next() + "_add_clause"
 
         global start_clause_global
         global end_clause_global
@@ -784,6 +784,7 @@ class ForExpression:
 
         # body
         src = ""
+        mtable.push(same_func=True)
         src += self.expression1._asm()
 
         src += '{}:\n'.format(start_clause)
@@ -804,6 +805,7 @@ class ForExpression:
         src += '{}:\n'.format(end_clause)
 
         # end body
+        src += mtable.pop()
 
         start_clause_global = None
         end_clause_global = None
@@ -936,7 +938,7 @@ class Function:
         src += self.statement._asm()
 
         # if header:
-        # src += mtable.pop()
+        #     src += mtable.pop()
         return src
 
     def _header(self):

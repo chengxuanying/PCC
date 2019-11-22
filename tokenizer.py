@@ -15,7 +15,7 @@ def tokenize(src):
 
     tokens = []
 
-    src = src.strip()
+    src = src.lstrip()
     while src:
 
         if src.startswith('/*'):
@@ -106,7 +106,7 @@ def tokenize(src):
             tokens.append(token_type.Token(src[1], token_type.CHAR))
 
             src = src[3:]
-
-        src = src.strip()
+        src = src.lstrip()
+        # print(src)
     return tokens
 

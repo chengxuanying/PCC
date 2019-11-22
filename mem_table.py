@@ -27,18 +27,18 @@ class MemTable:
         self.arg_stack_stack.append(self.arg_stack_stack)
 
         # merge outter to inner
-        new_outter = self.inner
+        new_outter = self.inner.copy()
         for k, v in self.outer.items():
             if k not in new_outter:
                 new_outter[k] = v
 
         if same_func:
             self.inner = {}
-            self.outer = new_outter
+            self.outer = new_outter.copy()
 
         else:
             self.inner = {}
-            self.outer = new_outter
+            self.outer = new_outter.copy()
             self.stack_index = 0
             self.arg_stack_index = 8
 
@@ -47,8 +47,12 @@ class MemTable:
         go out of a subfunction
         :return:
         """
-        # print(self.inner, self.outer)
-        src = "addq ${}, %rsp\n".format(len(self.inner) * 8)  # TODO
+
+        src = ""
+        off = len(self.inner) * 8
+        if off >= 0:
+            src += "addq ${}, %rsp\n".format(off)  # TODO Tochange
+        print(self.inner)
 
         self.outer = self.outter_stack.pop()
         self.inner = self.inner_stack.pop()

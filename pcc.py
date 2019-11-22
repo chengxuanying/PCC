@@ -21,7 +21,7 @@ if __name__ == '__main__':
     src = utils.read_src(fname)
     # print(src)
 
-    tokens = tokenizer.tokenize(src)
+    tokens = tokenizer.tokenize(src + '\n')
     tokens = preprocessor.preprocess(tokens)
     # print(tokens)
 
