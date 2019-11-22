@@ -42,6 +42,21 @@ class UnaryOP:
             src += "dec %rax\n"
             src += "movq %rax,{}\n".format(mtable.cite(id_name))
 
+        elif self.op == '&':
+            src += self.factor._asm()
+
+            # change to leaq
+            src = src.split('\n')
+            new_asm = src[-2].replace('movq', 'leaq')
+            src = src[:-2] + [new_asm]
+            src.append(new_asm)
+
+            src = '\n'.join(src) + '\n'
+
+        elif self.op == '*':
+            src += self.factor._asm()
+            src += "movq (%rax),%rax\n"
+
         else:
             print("unknown operator")
             exit(0)
@@ -458,6 +473,21 @@ class Compound:
 
         return src
 
+
+class CiteAssignment:
+    def __init__(self, id_name, expression, op):
+        self.id_name = id_name
+        self.expression = expression
+        self.op = op
+        self.assignment = Assignment(id_name=id_name,
+                                     expression=expression,
+                                     op=op)
+
+    def _asm(self):
+        src = self.assignment._op("%rbx")
+        src += "movq {},%rax\n".format(mtable.cite(self.id_name))
+        src += "movq %rbx,(%rax)\n"
+        return src
 
 class Assignment:
     def __init__(self, id_name, expression, op):

@@ -36,6 +36,7 @@ class parseError(Exception):
 <sub_exp > ::= <id> <assign_op> <exp> 
             ｜ <id> "[" <exp> "]" <assign_op> <exp>  #new
              | <conditional-exp>
+             | "*" <id> <assign_op> <exp> 
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -49,7 +50,7 @@ class parseError(Exception):
 <vars> ::= <id> "[" <exp> "]" | <id>
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 
-<unary_op> ::= "!" | "~" | "-"| ++ | --
+<unary_op> ::= "!" | "~" | "-"| ++ | -- | & | *
 <post_unary_op> ::= ++ | --
 <assign_op> ::= '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '<<=' | '>>=' | '&=' | '^=' | '|='
 """
@@ -397,9 +398,45 @@ def parse_subexpression(tokens, idx):
         f_name = tok.value
 
         idx, tok = utils.match(tokens, idx, OPERATOR, '[')
-
         idx, index_expression = parse_expression(tokens, idx)
+        idx, tok = utils.match(tokens, idx, OPERATOR, ']')
 
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
+
+        idx, expression = parse_subexpression(tokens, idx)
+        assignment = ArrayAssignment(id_name=f_name,
+                                     expression=expression,
+                                     op=tok.value,
+                                     index_expression=index_expression)
+        return idx, assignment
+    except:
+        idx = old_idx
+
+    # <exp> ::= "*" <id> "=" <exp>
+    old_idx = idx
+    try:
+        idx, tok = utils.match(tokens, idx, OPERATOR, '*')
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        f_name = tok.value
+
+        idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
+        idx, expression = parse_subexpression(tokens, idx)  # b=1,a
+        assignment = CiteAssignment(id_name=f_name,
+                                    expression=expression,
+                                    op=tok.value)
+        return idx, assignment
+    except:
+        idx = old_idx
+
+    # <id> "*" "[" <exp> "]" "=" <exp>
+    old_idx = idx
+    try:
+        idx, tok = utils.match(tokens, idx, OPERATOR, '*')
+        idx, tok = utils.match_type(tokens, idx, IDENTIFIER)
+        f_name = tok.value
+
+        idx, tok = utils.match(tokens, idx, OPERATOR, '[')
+        idx, index_expression = parse_expression(tokens, idx)
         idx, tok = utils.match(tokens, idx, OPERATOR, ']')
 
         idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
@@ -492,7 +529,6 @@ def parse_single_declaration(tokens, idx):
                                       expression=None)
     except:
         idx = old_idx
-
 
     assert False
 
