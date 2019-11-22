@@ -52,7 +52,7 @@ class MemTable:
         off = len(self.inner) * 8
         if off >= 0:
             src += "addq ${}, %rsp\n".format(off)  # TODO Tochange
-        print(self.inner)
+        # print(self.inner)
 
         self.outer = self.outter_stack.pop()
         self.inner = self.inner_stack.pop()

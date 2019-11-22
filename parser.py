@@ -31,7 +31,8 @@ class parseError(Exception):
               | "continue" ";"
 <exp-option> ::= <exp> | ""
 <declaration> ::= "int" <id> [ = <exp> ] ";"  |  "int" <id> "[" <exp> "]"            #new
-<exp> ::= <id> "=" <exp> 
+<exp> ::= <sub_exp> {"," <sub_exp>}  # new
+<sub_exp > ::= <id> "=" <exp> 
         ｜ <id> "[" <exp> "]" "=" <exp>  #new
         | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
@@ -318,8 +319,32 @@ def parse_condition_expression(tokens, idx):
         pass
     assert False
 
-
 def parse_expression(tokens, idx):
+    # <exp> ::= <sub_exp> "," <exp>  # new
+    old_idx = idx
+    try:
+        idx, sub_expression = parse_subexpression(tokens, idx)
+        comma_expression = CommaExpression(expression = sub_expression,
+                                           commaexpression=None)
+
+        while True:
+            try:
+                idx, tok = utils.match(tokens, idx, OPERATOR, ',')
+                idx, sub_expression = parse_subexpression(tokens, idx)
+
+                comma_expression = CommaExpression(expression=sub_expression,
+                                                   commaexpression=comma_expression)
+            except:
+                break
+
+
+        return idx, comma_expression
+    except:
+        idx = old_idx
+
+    assert False
+
+def parse_subexpression(tokens, idx):
     # <exp> ::= <id> "=" <exp>
     old_idx = idx
     try:
@@ -327,7 +352,7 @@ def parse_expression(tokens, idx):
         f_name = tok.value
 
         idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
-        idx, expression = parse_expression(tokens, idx)
+        idx, expression = parse_subexpression(tokens, idx) #b=1,a
         assignment = Assignment(id_name=f_name,
                                 expression=expression,
                                 op=tok.value)
@@ -346,7 +371,7 @@ def parse_expression(tokens, idx):
         idx, tok = utils.match(tokens, idx, OPERATOR, ']')
 
         idx, tok = utils.match_type_values(tokens, idx, OPERATOR, utils.assign_op)
-        idx, expression = parse_expression(tokens, idx)
+        idx, expression = parse_subexpression(tokens, idx)
         assignment = ArrayAssignment(id_name=f_name,
                                      expression=expression,
                                      op=tok.value,

@@ -538,9 +538,6 @@ class Assignment:
 
             src += "movq %rax,{}\n".format(reg)
 
-        elif self.op == ',':
-            src += self.expression._asm()
-
         else:
             print("unknown operator")
             exit(0)
@@ -655,9 +652,6 @@ class ArrayAssignment:
             src += "or %rbx,%rax\n"
             src += mtable.assign_array(self.id_name, self.index_expression)
 
-        elif self.op == ',':
-            src += self.expression._asm()
-
         else:
             print("unknown operator")
             exit(0)
@@ -673,6 +667,18 @@ class ArrayDeclaration:
     def _asm(self):
         return mtable.declare_array(self.id_name, self.type_name, self.index_expression, None)
 
+class CommaExpression:
+    def __init__(self, expression, commaexpression = None):
+        self.expression = expression
+        self.commaexpression = commaexpression
+
+    def _asm(self):
+        if self.commaexpression is None:
+            return self.expression._asm()
+
+        src = self.commaexpression._asm()
+        src += self.expression._asm()
+        return src
 
 class Variable:
     def __init__(self, id_name):
