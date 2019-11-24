@@ -64,7 +64,7 @@ call_regs = [
 
 def read_src(file='return_2.c'):
     with open(file) as f:
-        return f.read()
+        return f.read() + '\n'
 
 
 class ClauseCounter:

@@ -19,11 +19,10 @@ if __name__ == '__main__':
         fname = 'return_2.c'
 
     src = utils.read_src(fname)
-    # print(src)
+    src = preprocessor.preprocess_src(src)
 
-    tokens = tokenizer.tokenize(src + '\n')
+    tokens = tokenizer.tokenize(src)
     tokens = preprocessor.preprocess(tokens)
-    # print(tokens)
 
     ast = parser.parse(tokens)
 

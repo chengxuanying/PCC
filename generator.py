@@ -1,6 +1,10 @@
 import utils
 
 def generate(ast, fname):
+    if ast is None:
+        print("Empty file is not allowed!")
+        exit(1)
+
     f = open(fname, mode='w+')
 
     src = []
