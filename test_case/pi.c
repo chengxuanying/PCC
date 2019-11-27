@@ -17,3 +17,4 @@ int main(){
     for(b=c; d+=f[b]*a, f[b]=d%--g, d/=g-- ,--b; d*=b);
   printf("\n");
 }
+
