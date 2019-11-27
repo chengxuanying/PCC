@@ -76,9 +76,13 @@ class ClauseCounter:
         return '_clause{}'.format(self.cnt)
 
 
+idx2token = {}
+
+
 def match(tokens, idx, type, value):
     tok = tokens[idx]
     if (tok.type != type or tok.value != value):
+        idx2token[idx] = tokens[idx]
         raise "no {}:{}".format(type, value)
     idx += 1
     return idx, tok
@@ -87,6 +91,7 @@ def match(tokens, idx, type, value):
 def match_type(tokens, idx, type):
     tok = tokens[idx]
     if (tok.type != type):
+        idx2token[idx] = tokens[idx]
         raise "no {}".format(type)
     idx += 1
     return idx, tok
@@ -95,6 +100,7 @@ def match_type(tokens, idx, type):
 def match_value(tokens, idx, value):
     tok = tokens[idx]
     if (tok.value != value):
+        idx2token[idx] = tokens[idx]
         raise "no {}".format(value)
     idx += 1
     return idx, tok
@@ -103,6 +109,14 @@ def match_value(tokens, idx, value):
 def match_type_values(tokens, idx, type, values):
     tok = tokens[idx]
     if (tok.type != type or tok.value not in values):
+        idx2token[idx] = tokens[idx]
         raise "no {}:{}".format(type, str(values))
     idx += 1
     return idx, tok
+
+
+def print_around(tokens, idx, margin=5):
+    start = max(idx - margin, 0)
+    end = min(idx + margin + 1, len(tokens))
+    name_list = [str(i.value) for i in tokens[start:end]]
+    return ' '.join(name_list)

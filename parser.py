@@ -910,4 +910,11 @@ def parse_program(tokens, idx):
 
 
 def parse(tokens, idx=0):
-    return parse_program(tokens, idx)
+    prog = parse_program(tokens, idx)
+
+    if prog is None:
+        k = max(list(utils.idx2token.keys()))
+        print("parse error:", utils.print_around(tokens, k, margin=1))
+        exit(1)
+
+    return prog
