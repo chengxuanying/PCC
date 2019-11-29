@@ -1,4 +1,4 @@
-#define N 100000
+#define N 1000
 
 int swap(int a,int b){
     int t;
