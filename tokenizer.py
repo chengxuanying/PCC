@@ -106,6 +106,9 @@ def tokenize(src):
             tokens.append(token_type.Token(src[1], token_type.CHAR))
 
             src = src[3:]
+        else:
+            print("tokenize error:", src[:10])
+            exit(1)
         src = src.lstrip()
         # print(src)
     return tokens

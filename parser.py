@@ -914,7 +914,8 @@ def parse(tokens, idx=0):
 
     if prog is None:
         k = max(list(utils.idx2token.keys()))
-        print("parse error:", utils.print_around(tokens, k, margin=1))
+        print("parse error:", utils.print_around(tokens, k, margin=1),
+              utils.idx2token[k][1])
         exit(1)
 
     return prog
