@@ -37,21 +37,6 @@ def compile():
 
     return json.dumps({"msg": text, "asm": "Compiled failed!"})
 
-@app.route('/api/link', methods=['GET','POST'])
-def link():
-    src = request.get_json()['src']
-    with open('temp.s', 'w+') as f:
-        f.write(src)
-
-    r = os.popen('clang temp.s -o temp')
-    text = r.read()
-    r.close()
-
-    if text == '':
-        text = 'success!'
-
-    return json.dumps({"msg": text})
-
 @app.route('/api/run', methods=['GET','POST'])
 def run():
     input_ = request.get_json()['input']

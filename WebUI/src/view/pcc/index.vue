@@ -37,9 +37,7 @@ You can derive test cases from here.
     placeholder="Please compile first!"
     maxlength="999999"
     show-word-limit
-  >
-  <van-button slot="button" size="large" type="primary" @click="link">GenObj&Link</van-button>
-  </van-field>
+  ></van-field>
 </van-cell-group>
 
 
