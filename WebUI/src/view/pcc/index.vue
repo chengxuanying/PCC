@@ -31,8 +31,7 @@ You can derive test cases from here.
   <van-cell-group>
   <van-field
     v-model="asmcode"
-    rows="3"
-    autosize
+    rows="10"
     label="ASM Code"
     type="textarea"
     placeholder="Please compile first!"
@@ -64,8 +63,7 @@ You can derive test cases from here.
   <van-cell-group>
   <van-field
     v-model="output"
-    rows="3"
-    autosize
+    rows="10"
     label="Output"
     type="textarea"
     placeholder="Click run to get the output!"
@@ -75,7 +73,7 @@ You can derive test cases from here.
 </van-cell-group>
 
 <van-divider> About </van-divider>
-<van-cell value="PCC x86 is my compilation coursework and I would appreciate my instructor Weihong, Yao for her valuable suggestions." />
+<van-cell value="PCC x86 is my compilation coursework and I would appreciate my instructor Weihong, Yao for her valuable suggestions and also credit to Wenyu, Xing" />
 
   </div>
 </template>

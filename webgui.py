@@ -47,6 +47,9 @@ def link():
     text = r.read()
     r.close()
 
+    if text == '':
+        text = 'success!'
+
     return json.dumps({"msg": text})
 
 @app.route('/api/run', methods=['GET','POST'])
