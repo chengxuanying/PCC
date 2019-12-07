@@ -12,7 +12,7 @@ int hanio(int a,int b, int c,int n)
 }
 
 int main() {
-    for(int i = 3;i<=5;++i){
+    for(int i = 1;i<=3;++i){
         printf("当i=%d时\n",i);
         cnt = 0;
         hanio('A','B','C',i);
