@@ -19,13 +19,13 @@ The PCC x64 compiler implements a subset programming language of  the C language
 
 ### Hello, world!
 
-![hello_world1](res/hello_world1.gif)
+![hello_world1](res/hello_world1.png)
 
 ### Hanio
-![hanio](res/hanio.gif)
+![hanio](res/hanio.png)
 
 ### Pi
-![pi](res/pi.gif)
+![pi](res/pi.png)
 
 ## Features
 * **Modularization**: The PCC is divided into tokenizer, preprocessing unit, AST generator, ASM generator and the variable manager.
