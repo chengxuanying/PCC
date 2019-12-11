@@ -1,7 +1,7 @@
 <p align="center">
   <h3 align="center">PCC x64</h3>
   <p align="center">
-    A Python-based Clanguage Compiler on Maxos x64.
+    A Python-based Clanguage Compiler on macos x64.
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/python-3.6%20%7C%203.7-blue.svg" alt="py37">
@@ -51,7 +51,7 @@ then open http://127.0.0.1:5001/ in your webrowser.
 
 ## About
 
-This software (PCC x64) is an coursework for "Compileation" and the instructor is Weighing, Yao.
+This software (PCC x64) is an coursework for "Principles of Compiling" and the instructor is Weighing, Yao.
 
 ```
 Author: Chengxuan Ying(@chengsyuan)
